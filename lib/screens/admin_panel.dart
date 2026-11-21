@@ -24,6 +24,8 @@ class _AdminPanelState extends State<AdminPanel> {
   bool _isLoadingUsers = false;
   bool _isLoadingLogs = false;
   bool _isArchivingLogs = false;
+  bool _isLoadingArchivedLogs = false;
+  bool _isDeletingArchivedLogs = false;
   String? _processingRequestId;
   int _userListRefreshKey = 0;
 
@@ -46,6 +48,7 @@ class _AdminPanelState extends State<AdminPanel> {
     DataService.moduleUpdateNotifier.addListener(_onRealtimeDataUpdated);
     AuthService.userProfileNotifier.addListener(_onRealtimeDataUpdated);
     _refreshLogs();
+    _refreshArchivedLogs();
     _loadUsers();
     DataService.loadAlumniProfiles().then((_) {
       if (mounted) setState(() {});
@@ -87,33 +90,114 @@ class _AdminPanelState extends State<AdminPanel> {
     setState(() => _isLoadingLogs = false);
   }
 
+  Future<void> _refreshArchivedLogs() async {
+    if (!mounted) return;
+    setState(() => _isLoadingArchivedLogs = true);
+    await DataService.loadArchivedSystemLogs();
+    if (!mounted) return;
+    setState(() => _isLoadingArchivedLogs = false);
+  }
+
   Future<void> _archiveLogs() async {
     if (_isArchivingLogs) return;
-    final confirmed = await showDialog<bool>(
+    var timeframe = 'all';
+    DateTimeRange? customRange;
+    final selection = await showDialog<Map<String, dynamic>>(
       context: context,
-      builder: (dialogContext) => AlertDialog(
-        title: const Text('Archive Activity Logs?'),
-        content: const Text(
-          'All active activity logs will be moved to the archive. '
-          'This keeps the log history without leaving active logs visible.',
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(dialogContext, false),
-            child: const Text('Cancel'),
+      builder: (dialogContext) => StatefulBuilder(
+        builder: (context, setDialogState) => AlertDialog(
+          title: const Text('Archive Activity Logs?'),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Text('Choose which active logs to archive:'),
+              const SizedBox(height: 12),
+              DropdownButtonFormField<String>(
+                initialValue: timeframe,
+                decoration: const InputDecoration(
+                  labelText: 'Timeframe',
+                  border: OutlineInputBorder(),
+                ),
+                items: const [
+                  DropdownMenuItem(value: 'all', child: Text('All logs')),
+                  DropdownMenuItem(
+                    value: '24h',
+                    child: Text('Within the past 24 hours'),
+                  ),
+                  DropdownMenuItem(
+                    value: '7d',
+                    child: Text('Within the past 7 days'),
+                  ),
+                  DropdownMenuItem(
+                    value: '30d',
+                    child: Text('Within the past 30 days'),
+                  ),
+                  DropdownMenuItem(
+                    value: '90d',
+                    child: Text('Within the past 90 days'),
+                  ),
+                  DropdownMenuItem(
+                    value: 'custom',
+                    child: Text('Custom date range'),
+                  ),
+                ],
+                onChanged: (value) async {
+                  if (value == null) return;
+                  if (value == 'custom') {
+                    final range = await showDateRangePicker(
+                      context: context,
+                      firstDate: DateTime(2020),
+                      lastDate: DateTime.now(),
+                      initialDateRange: customRange,
+                    );
+                    if (range != null) {
+                      setDialogState(() {
+                        customRange = range;
+                        timeframe = value;
+                      });
+                    }
+                  } else {
+                    setDialogState(() => timeframe = value);
+                  }
+                },
+              ),
+              if (timeframe == 'custom')
+                Padding(
+                  padding: const EdgeInsets.only(top: 10),
+                  child: Text(
+                    customRange == null
+                        ? 'Select a custom date range.'
+                        : '${customRange!.start.toString().substring(0, 10)} to '
+                              '${customRange!.end.toString().substring(0, 10)}',
+                    style: const TextStyle(fontSize: 12),
+                  ),
+                ),
+            ],
           ),
-          ElevatedButton(
-            style: ElevatedButton.styleFrom(
-              backgroundColor: Colors.orange.shade700,
-              foregroundColor: Colors.white,
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(dialogContext),
+              child: const Text('Cancel'),
             ),
-            onPressed: () => Navigator.pop(dialogContext, true),
-            child: const Text('Archive'),
-          ),
-        ],
+            ElevatedButton(
+              style: ElevatedButton.styleFrom(
+                backgroundColor: Colors.orange.shade700,
+                foregroundColor: Colors.white,
+              ),
+              onPressed: timeframe == 'custom' && customRange == null
+                  ? null
+                  : () => Navigator.pop(dialogContext, <String, dynamic>{
+                      'timeframe': timeframe,
+                      'range': customRange,
+                    }),
+              child: const Text('Archive'),
+            ),
+          ],
+        ),
       ),
     );
-    if (confirmed != true || !mounted) return;
+    if (selection == null || !mounted) return;
 
     setState(() => _isArchivingLogs = true);
     try {
@@ -121,12 +205,34 @@ class _AdminPanelState extends State<AdminPanel> {
           AuthService.currentUser?.email.trim().isNotEmpty == true
           ? AuthService.currentUser!.email
           : 'Admin';
-      final count = await DataService.archiveSystemLogs(archivedBy: archivedBy);
+      DateTime? start;
+      DateTime? end;
+      final selectedTimeframe = (selection['timeframe'] ?? 'all').toString();
+      final now = DateTime.now();
+      if (selectedTimeframe == '24h') {
+        start = now.subtract(const Duration(hours: 24));
+      } else if (selectedTimeframe == '7d') {
+        start = now.subtract(const Duration(days: 7));
+      } else if (selectedTimeframe == '30d') {
+        start = now.subtract(const Duration(days: 30));
+      } else if (selectedTimeframe == '90d') {
+        start = now.subtract(const Duration(days: 90));
+      } else if (selectedTimeframe == 'custom') {
+        final range = selection['range'] as DateTimeRange?;
+        start = range?.start;
+        end = range?.end.add(const Duration(days: 1));
+      }
+      final count = await DataService.archiveSystemLogs(
+        archivedBy: archivedBy,
+        start: start,
+        end: end,
+      );
       if (!mounted) return;
       setState(() {
         _isArchivingLogs = false;
         _isLoadingLogs = false;
       });
+      await _refreshArchivedLogs();
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text(
@@ -143,6 +249,102 @@ class _AdminPanelState extends State<AdminPanel> {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text('Could not archive activity logs: $e'),
+          backgroundColor: Colors.red,
+        ),
+      );
+    }
+  }
+
+  Future<void> _deleteArchivedLog(Map<String, dynamic> log) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: const Text('Delete Archived Log?'),
+        content: const Text(
+          'This permanently deletes this archived activity log.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(dialogContext, false),
+            child: const Text('Cancel'),
+          ),
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Colors.red,
+              foregroundColor: Colors.white,
+            ),
+            onPressed: () => Navigator.pop(dialogContext, true),
+            child: const Text('Delete'),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true || !mounted) return;
+
+    try {
+      await DataService.deleteArchivedSystemLog(log['id'].toString());
+      if (!mounted) return;
+      setState(() {});
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Archived activity log deleted.'),
+          backgroundColor: Colors.green,
+        ),
+      );
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Could not delete archived log: $e'),
+          backgroundColor: Colors.red,
+        ),
+      );
+    }
+  }
+
+  Future<void> _deleteAllArchivedLogs() async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: const Text('Delete All Archived Logs?'),
+        content: const Text(
+          'This permanently deletes every archived activity log.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(dialogContext, false),
+            child: const Text('Cancel'),
+          ),
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Colors.red,
+              foregroundColor: Colors.white,
+            ),
+            onPressed: () => Navigator.pop(dialogContext, true),
+            child: const Text('Delete All'),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true || !mounted) return;
+
+    setState(() => _isDeletingArchivedLogs = true);
+    try {
+      await DataService.deleteAllArchivedSystemLogs();
+      if (!mounted) return;
+      setState(() => _isDeletingArchivedLogs = false);
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('All archived activity logs deleted.'),
+          backgroundColor: Colors.green,
+        ),
+      );
+    } catch (e) {
+      if (!mounted) return;
+      setState(() => _isDeletingArchivedLogs = false);
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Could not delete archived logs: $e'),
           backgroundColor: Colors.red,
         ),
       );
@@ -1066,7 +1268,9 @@ class _AdminPanelState extends State<AdminPanel> {
                       ? _buildSystemLogs(theme)
                       : _selectedTab == 1
                       ? _buildAppContent(theme)
-                      : _buildUserAccounts(theme),
+                      : _selectedTab == 2
+                      ? _buildUserAccounts(theme)
+                      : _buildArchivedSystemLogs(theme),
                 ),
               ],
             ),
@@ -1264,6 +1468,7 @@ class _AdminPanelState extends State<AdminPanel> {
           _tabButton('Activity Logs', Icons.history_toggle_off_rounded, 0),
           _tabButton('App Content', Icons.view_carousel_rounded, 1),
           _tabButton('User Accounts', Icons.manage_accounts_rounded, 2),
+          _tabButton('Archived Logs', Icons.archive_rounded, 3),
         ],
       ),
     );
@@ -1282,6 +1487,8 @@ class _AdminPanelState extends State<AdminPanel> {
             _refreshLogs();
           } else if (index == 2) {
             _loadUsers();
+          } else if (index == 3) {
+            _refreshArchivedLogs();
           }
         },
         child: AnimatedContainer(
@@ -1465,6 +1672,138 @@ class _AdminPanelState extends State<AdminPanel> {
                                   fontWeight: FontWeight.w500,
                                   color: Color(0xFF0B3C5D),
                                 ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      );
+                    },
+                  ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildArchivedSystemLogs(ThemeData theme) {
+    final logs = DataService.archivedSystemLogs;
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Wrap(
+            alignment: WrapAlignment.spaceBetween,
+            crossAxisAlignment: WrapCrossAlignment.center,
+            runSpacing: 8,
+            children: [
+              Text(
+                'Archived Activity Logs (${logs.length})',
+                style: const TextStyle(
+                  fontWeight: FontWeight.bold,
+                  fontSize: 16,
+                  color: Color(0xFF0B3C5D),
+                ),
+              ),
+              Wrap(
+                spacing: 8,
+                runSpacing: 8,
+                children: [
+                  OutlinedButton.icon(
+                    icon: const Icon(Icons.refresh_rounded, size: 16),
+                    label: const Text('Sync Archive'),
+                    style: OutlinedButton.styleFrom(
+                      foregroundColor: const Color(0xFF0277BD),
+                    ),
+                    onPressed: _isLoadingArchivedLogs
+                        ? null
+                        : _refreshArchivedLogs,
+                  ),
+                  OutlinedButton.icon(
+                    icon: _isDeletingArchivedLogs
+                        ? const SizedBox(
+                            width: 16,
+                            height: 16,
+                            child: CircularProgressIndicator(strokeWidth: 2),
+                          )
+                        : const Icon(Icons.delete_sweep_rounded, size: 16),
+                    label: const Text('Delete All'),
+                    style: OutlinedButton.styleFrom(
+                      foregroundColor: Colors.red.shade700,
+                      side: BorderSide(color: Colors.red.shade200),
+                    ),
+                    onPressed: _isDeletingArchivedLogs || logs.isEmpty
+                        ? null
+                        : _deleteAllArchivedLogs,
+                  ),
+                ],
+              ),
+            ],
+          ),
+          const SizedBox(height: 8),
+          Expanded(
+            child: _isLoadingArchivedLogs
+                ? const Center(child: CircularProgressIndicator())
+                : logs.isEmpty
+                ? Center(
+                    child: Container(
+                      padding: const EdgeInsets.all(24),
+                      decoration: BoxDecoration(
+                        color: Colors.white,
+                        borderRadius: BorderRadius.circular(18),
+                      ),
+                      child: const Text(
+                        'No archived activity logs.',
+                        style: TextStyle(color: Colors.black54),
+                      ),
+                    ),
+                  )
+                : ListView.builder(
+                    itemCount: logs.length,
+                    itemBuilder: (_, i) {
+                      final log = logs[logs.length - 1 - i];
+                      final raw =
+                          log['formatted']?.toString() ?? 'Archived log';
+                      return Container(
+                        margin: const EdgeInsets.only(bottom: 10),
+                        padding: const EdgeInsets.all(14),
+                        decoration: BoxDecoration(
+                          color: Colors.white,
+                          borderRadius: BorderRadius.circular(16),
+                          border: Border.all(
+                            color: Colors.orange.withOpacity(0.22),
+                          ),
+                        ),
+                        child: Row(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            CircleAvatar(
+                              radius: 18,
+                              backgroundColor: Colors.orange.withOpacity(0.12),
+                              child: const Icon(
+                                Icons.archive_rounded,
+                                color: Colors.deepOrange,
+                                size: 20,
+                              ),
+                            ),
+                            const SizedBox(width: 12),
+                            Expanded(
+                              child: Text(
+                                raw,
+                                style: const TextStyle(
+                                  fontSize: 12.5,
+                                  height: 1.4,
+                                  fontWeight: FontWeight.w500,
+                                  color: Color(0xFF0B3C5D),
+                                ),
+                              ),
+                            ),
+                            IconButton(
+                              tooltip: 'Delete archived log',
+                              onPressed: () => _deleteArchivedLog(log),
+                              icon: const Icon(
+                                Icons.delete_outline_rounded,
+                                color: Colors.red,
                               ),
                             ),
                           ],
