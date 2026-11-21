@@ -109,6 +109,73 @@ String _escapeXml(String text) => text
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
 
+  test(
+    'Image and MP4 module drafts are accepted for viewing and download',
+    () async {
+      final jpegBytes = Uint8List.fromList(<int>[0xFF, 0xD8, 0xFF, 0xD9]);
+      final mp4Bytes = Uint8List.fromList(<int>[
+        0,
+        0,
+        0,
+        24,
+        0x66,
+        0x74,
+        0x79,
+        0x70,
+      ]);
+
+      final imageDraft = await DataService.prepareModuleDraft(
+        title: 'Fish Anatomy',
+        fileName: 'fish-anatomy.jpg',
+        category: 'module',
+        bytes: jpegBytes,
+        pickedFileSize: jpegBytes.length,
+      );
+      final videoDraft = await DataService.prepareModuleDraft(
+        title: 'Pond Aeration',
+        fileName: 'pond-aeration.mp4',
+        category: 'module',
+        bytes: mp4Bytes,
+        pickedFileSize: mp4Bytes.length,
+      );
+
+      expect(imageDraft.fileType, 'jpg');
+      expect(imageDraft.questions, isEmpty);
+      expect(imageDraft.fileUrl, startsWith('data:image/jpeg;base64,'));
+      expect(videoDraft.fileType, 'mp4');
+      expect(videoDraft.questions, isEmpty);
+    },
+  );
+
+  test('MP4 module drafts reject files above 400 MB', () async {
+    final mp4Bytes = Uint8List.fromList(<int>[
+      0,
+      0,
+      0,
+      24,
+      0x66,
+      0x74,
+      0x79,
+      0x70,
+    ]);
+
+    await expectLater(
+      DataService.prepareModuleDraft(
+        title: 'Large Pond Lecture',
+        fileName: 'large-pond-lecture.mp4',
+        category: 'module',
+        bytes: mp4Bytes,
+        pickedFileSize: 401 * 1024 * 1024,
+      ),
+      throwsA(
+        predicate(
+          (Object error) =>
+              error.toString().contains('400 MB maximum upload limit'),
+        ),
+      ),
+    );
+  });
+
   test('PDF quiz and mock exam drafts generate questions', () async {
     final bytes = await _createTextPdf();
 

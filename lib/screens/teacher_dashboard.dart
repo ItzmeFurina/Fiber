@@ -874,10 +874,26 @@ class _TeacherDashboardState extends State<TeacherDashboard> {
 
     final title = config['title'] ?? defaultTitle;
     final category = config['category'] ?? 'module';
-    if (category == 'module' && !fileName.toLowerCase().endsWith('.pdf')) {
+    final extension = fileName.contains('.')
+        ? fileName.split('.').last.toLowerCase()
+        : '';
+    final isPicture = DataService.isPictureExtension(extension);
+    final isVideo = DataService.isVideoExtension(extension);
+    if (category != 'module' && (isPicture || isVideo)) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
-          content: Text('Study modules accept PDF files only.'),
+          content: Text(
+            'Images and videos must be uploaded as study materials.',
+          ),
+          backgroundColor: Colors.red,
+        ),
+      );
+      return;
+    }
+    if (category == 'module' && extension != 'pdf' && !isPicture && !isVideo) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Study modules accept PDF, image, or MP4 video files.'),
           backgroundColor: Colors.red,
         ),
       );
@@ -3251,10 +3267,26 @@ class _LearningMaterialsManagementScreenState
 
     final title = config['title'] ?? defaultTitle;
     final category = config['category'] ?? 'module';
-    if (category == 'module' && !fileName.toLowerCase().endsWith('.pdf')) {
+    final extension = fileName.contains('.')
+        ? fileName.split('.').last.toLowerCase()
+        : '';
+    final isPicture = DataService.isPictureExtension(extension);
+    final isVideo = DataService.isVideoExtension(extension);
+    if (category != 'module' && (isPicture || isVideo)) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
-          content: Text('Study modules accept PDF files only.'),
+          content: Text(
+            'Images and videos must be uploaded as study materials.',
+          ),
+          backgroundColor: Colors.red,
+        ),
+      );
+      return;
+    }
+    if (category == 'module' && extension != 'pdf' && !isPicture && !isVideo) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Study modules accept PDF, image, or MP4 video files.'),
           backgroundColor: Colors.red,
         ),
       );

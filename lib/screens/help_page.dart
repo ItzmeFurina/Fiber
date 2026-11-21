@@ -42,7 +42,7 @@ const teacherHelpSteps = <HelpStep>[
   HelpStep(
     title: 'Uploading Module',
     body:
-        'Upload a module such as pdf, docx, and pptx for the students to start '
+        'Upload a module in PDF format for the students to start '
         'their reviewing session.',
   ),
   HelpStep(
@@ -159,7 +159,7 @@ class HelpPage extends StatelessWidget {
                         step: HelpStep(
                           title: 'Accessing Learning Modules',
                           body:
-                              'Open the Module Library or your class Module Folders to read extracted study materials from PDF, DOCX, PPTX, and TXT files while preserving the original uploaded file metadata.',
+                              'Open the Module Library or your class Module Folders to read extracted study materials from PDF files while preserving the original uploaded file metadata.',
                         ),
                       ),
                       SizedBox(height: 12),
@@ -227,7 +227,7 @@ class HelpPage extends StatelessWidget {
                         question:
                             'Can teachers edit the automatically extracted quiz questions?',
                         answer:
-                            'Yes! When a teacher uploads a PDF, Word, PowerPoint, or TXT file, the "Review & Edit Extracted Questions" modal opens automatically so the teacher can edit, delete, or add new questions before clicking Publish Now.',
+                            'Yes! When a teacher uploads a PDF file, the "Review & Edit Extracted Questions" modal opens automatically so the teacher can edit, delete, or add new questions before clicking Publish Now.',
                       ),
                       _FaqTile(
                         question:

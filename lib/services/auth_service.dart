@@ -833,7 +833,7 @@ class AuthService {
       final isPendingFirstSetup =
           sendPasswordSetupLink || password == null || password.trim().isEmpty;
       final effectivePassword = !isPendingFirstSetup
-          ? password!.trim()
+          ? password.trim()
           : _buildDeterministicActivationKey(cleanEmail);
 
       UserCredential credential;

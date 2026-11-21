@@ -16,20 +16,21 @@ class AdminPanel extends StatefulWidget {
   State<AdminPanel> createState() => _AdminPanelState();
 }
 
-class _AdminPanelState extends State< AdminPanel > {
-  final GlobalKey< ScaffoldState > _scaffoldKey = GlobalKey< ScaffoldState >();
+class _AdminPanelState extends State<AdminPanel> {
+  final GlobalKey<ScaffoldState> _scaffoldKey = GlobalKey<ScaffoldState>();
   int _selectedTab = 0;
-  List< Map< String, dynamic > > _users = [];
-  List< Map< String, dynamic > > _teacherRequests = [];
+  List<Map<String, dynamic>> _users = [];
+  List<Map<String, dynamic>> _teacherRequests = [];
   bool _isLoadingUsers = false;
   bool _isLoadingLogs = false;
+  bool _isArchivingLogs = false;
   String? _processingRequestId;
   int _userListRefreshKey = 0;
 
   String _selectedRoleFilter = 'all';
   final TextEditingController _userSearchCtrl = TextEditingController();
 
-  final _editFormKey = GlobalKey< FormState >();
+  final _editFormKey = GlobalKey<FormState>();
   late TextEditingController _emailCtrl;
   late TextEditingController _nameCtrl;
   late TextEditingController _usernameCtrl;
@@ -58,12 +59,9 @@ class _AdminPanelState extends State< AdminPanel > {
     if (mounted) setState(() {});
   }
 
-  Future< void > _openFromSidebar(Widget page) async {
+  Future<void> _openFromSidebar(Widget page) async {
     Navigator.pop(context);
-    await Navigator.push(
-      context,
-      MaterialPageRoute(builder: (_) => page),
-    );
+    await Navigator.push(context, MaterialPageRoute(builder: (_) => page));
     if (!mounted) return;
     setState(() {});
     _scaffoldKey.currentState?.openDrawer();
@@ -81,7 +79,7 @@ class _AdminPanelState extends State< AdminPanel > {
     super.dispose();
   }
 
-  Future< void > _refreshLogs() async {
+  Future<void> _refreshLogs() async {
     if (!mounted) return;
     setState(() => _isLoadingLogs = true);
     await DataService.loadSystemLogs();
@@ -89,7 +87,69 @@ class _AdminPanelState extends State< AdminPanel > {
     setState(() => _isLoadingLogs = false);
   }
 
-  Future< void > _loadUsers() async {
+  Future<void> _archiveLogs() async {
+    if (_isArchivingLogs) return;
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: const Text('Archive Activity Logs?'),
+        content: const Text(
+          'All active activity logs will be moved to the archive. '
+          'This keeps the log history without leaving active logs visible.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(dialogContext, false),
+            child: const Text('Cancel'),
+          ),
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Colors.orange.shade700,
+              foregroundColor: Colors.white,
+            ),
+            onPressed: () => Navigator.pop(dialogContext, true),
+            child: const Text('Archive'),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true || !mounted) return;
+
+    setState(() => _isArchivingLogs = true);
+    try {
+      final archivedBy =
+          AuthService.currentUser?.email.trim().isNotEmpty == true
+          ? AuthService.currentUser!.email
+          : 'Admin';
+      final count = await DataService.archiveSystemLogs(archivedBy: archivedBy);
+      if (!mounted) return;
+      setState(() {
+        _isArchivingLogs = false;
+        _isLoadingLogs = false;
+      });
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            count == 0
+                ? 'There are no activity logs to archive.'
+                : '$count activity log${count == 1 ? '' : 's'} archived.',
+          ),
+          backgroundColor: count == 0 ? Colors.blueGrey : Colors.green.shade700,
+        ),
+      );
+    } catch (e) {
+      if (!mounted) return;
+      setState(() => _isArchivingLogs = false);
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Could not archive activity logs: $e'),
+          backgroundColor: Colors.red,
+        ),
+      );
+    }
+  }
+
+  Future<void> _loadUsers() async {
     if (!mounted) return;
     setState(() => _isLoadingUsers = true);
     final results = await Future.wait([
@@ -104,9 +164,7 @@ class _AdminPanelState extends State< AdminPanel > {
     });
   }
 
-  Future< void > _handleApproveTeacherRequest(
-    Map< String, dynamic > req,
-  ) async {
+  Future<void> _handleApproveTeacherRequest(Map<String, dynamic> req) async {
     final reqId = (req['id'] ?? '').toString();
     final name = (req['name'] ?? '').toString().trim();
     final username = (req['username'] ?? '').toString().trim();
@@ -157,15 +215,13 @@ class _AdminPanelState extends State< AdminPanel > {
     }
   }
 
-  Future< void > _handleRejectTeacherRequest(
-    Map< String, dynamic > req,
-  ) async {
+  Future<void> _handleRejectTeacherRequest(Map<String, dynamic> req) async {
     final reqId = (req['id'] ?? '').toString();
     final name = (req['name'] ?? '').toString().trim();
     final email = (req['email'] ?? '').toString().trim();
     if (reqId.isEmpty) return;
 
-    final confirmed = await showDialog< bool >(
+    final confirmed = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
         title: const Text('Reject Teacher Request'),
@@ -570,7 +626,7 @@ class _AdminPanelState extends State< AdminPanel > {
     );
   }
 
-  Future< void > _showAlumniDialog({AlumniProfile? profile}) async {
+  Future<void> _showAlumniDialog({AlumniProfile? profile}) async {
     final isEditing = profile != null;
     final nameCtrl = TextEditingController(text: profile?.name ?? '');
     final positionCtrl = TextEditingController(
@@ -739,7 +795,8 @@ class _AdminPanelState extends State< AdminPanel > {
                         controller: positionCtrl,
                         decoration: const InputDecoration(
                           labelText: 'Position in the Company',
-                          hintText: 'e.g., Fisheries Officer / Aquaculture Specialist',
+                          hintText:
+                              'e.g., Fisheries Officer / Aquaculture Specialist',
                         ),
                         validator: (value) =>
                             (value == null || value.trim().isEmpty)
@@ -828,7 +885,7 @@ class _AdminPanelState extends State< AdminPanel > {
         ? AuthService.currentUser!.name.trim()
         : 'FiBER Administrator';
 
-   return Scaffold(
+    return Scaffold(
       key: _scaffoldKey,
       backgroundColor: theme.scaffoldBackgroundColor,
       appBar: AppBar(
@@ -1273,8 +1330,10 @@ class _AdminPanelState extends State< AdminPanel > {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          Wrap(
+            alignment: WrapAlignment.spaceBetween,
+            crossAxisAlignment: WrapCrossAlignment.center,
+            runSpacing: 8,
             children: [
               Text(
                 'System Activity Logs (${logs.length})',
@@ -1284,17 +1343,44 @@ class _AdminPanelState extends State< AdminPanel > {
                   color: Color(0xFF0B3C5D),
                 ),
               ),
-              OutlinedButton.icon(
-                icon: const Icon(Icons.refresh_rounded, size: 16),
-                label: const Text('Sync Logs'),
-                style: OutlinedButton.styleFrom(
-                  foregroundColor: const Color(0xFF0277BD),
-                  side: BorderSide(color: Colors.lightBlue.shade200),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(20),
+              Wrap(
+                spacing: 8,
+                runSpacing: 8,
+                children: [
+                  OutlinedButton.icon(
+                    icon: const Icon(Icons.refresh_rounded, size: 16),
+                    label: const Text('Sync Logs'),
+                    style: OutlinedButton.styleFrom(
+                      foregroundColor: const Color(0xFF0277BD),
+                      side: BorderSide(color: Colors.lightBlue.shade200),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(20),
+                      ),
+                    ),
+                    onPressed: _isLoadingLogs ? null : _refreshLogs,
                   ),
-                ),
-                onPressed: _isLoadingLogs ? null : _refreshLogs,
+                  OutlinedButton.icon(
+                    icon: _isArchivingLogs
+                        ? const SizedBox(
+                            width: 16,
+                            height: 16,
+                            child: CircularProgressIndicator(strokeWidth: 2),
+                          )
+                        : const Icon(Icons.archive_rounded, size: 16),
+                    label: Text(_isArchivingLogs ? 'Archiving...' : 'Archive'),
+                    style: OutlinedButton.styleFrom(
+                      foregroundColor: Colors.orange.shade800,
+                      side: BorderSide(color: Colors.orange.shade200),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(20),
+                      ),
+                    ),
+                    onPressed:
+                        _isLoadingLogs || _isArchivingLogs || logs.isEmpty
+                        ? null
+                        : _archiveLogs,
+                  ),
+                ],
               ),
             ],
           ),
@@ -1320,23 +1406,25 @@ class _AdminPanelState extends State< AdminPanel > {
                     itemCount: logs.length,
                     itemBuilder: (_, i) {
                       final raw = logs[logs.length - 1 - i];
-                      final isError = raw.contains('FAILED') ||
+                      final isError =
+                          raw.contains('FAILED') ||
                           raw.contains('REJECTED') ||
                           raw.contains('DELETED');
-                      final isSuccess = raw.contains('CREATED') ||
+                      final isSuccess =
+                          raw.contains('CREATED') ||
                           raw.contains('APPROVED') ||
                           raw.contains('ACTIVATED') ||
                           raw.contains('ADDED');
                       final badgeColor = isError
                           ? Colors.red.shade700
                           : isSuccess
-                              ? Colors.green.shade700
-                              : const Color(0xFF0277BD);
+                          ? Colors.green.shade700
+                          : const Color(0xFF0277BD);
                       final badgeIcon = isError
                           ? Icons.warning_amber_rounded
                           : isSuccess
-                              ? Icons.check_circle_outline_rounded
-                              : Icons.info_outline_rounded;
+                          ? Icons.check_circle_outline_rounded
+                          : Icons.info_outline_rounded;
 
                       return Container(
                         margin: const EdgeInsets.only(bottom: 10),
@@ -1552,7 +1640,7 @@ class _AdminPanelState extends State< AdminPanel > {
                         color: Colors.redAccent,
                       ),
                       onPressed: () async {
-                        final confirmed = await showDialog< bool >(
+                        final confirmed = await showDialog<bool>(
                           context: context,
                           builder: (_) => AlertDialog(
                             shape: RoundedRectangleBorder(
@@ -1813,11 +1901,11 @@ class _AdminPanelState extends State< AdminPanel > {
                               ..._teacherRequests.map((req) {
                                 final reqId = (req['id'] ?? '').toString();
                                 final name = (req['name'] ?? '').toString();
-                                final username =
-                                    (req['username'] ?? '').toString();
+                                final username = (req['username'] ?? '')
+                                    .toString();
                                 final email = (req['email'] ?? '').toString();
-                                final dept =
-                                    (req['department'] ?? '').toString();
+                                final dept = (req['department'] ?? '')
+                                    .toString();
                                 final isBusy = _processingRequestId == reqId;
 
                                 return Container(
@@ -1899,9 +1987,9 @@ class _AdminPanelState extends State< AdminPanel > {
                                             onPressed: isBusy
                                                 ? null
                                                 : () =>
-                                                    _handleRejectTeacherRequest(
-                                                      req,
-                                                    ),
+                                                      _handleRejectTeacherRequest(
+                                                        req,
+                                                      ),
                                             icon: const Icon(
                                               Icons.close_rounded,
                                               size: 16,
@@ -1928,24 +2016,26 @@ class _AdminPanelState extends State< AdminPanel > {
                                             onPressed: isBusy
                                                 ? null
                                                 : () =>
-                                                    _handleApproveTeacherRequest(
-                                                      req,
-                                                    ),
+                                                      _handleApproveTeacherRequest(
+                                                        req,
+                                                      ),
                                             icon: isBusy
                                                 ? const SizedBox(
                                                     width: 14,
                                                     height: 14,
                                                     child:
                                                         CircularProgressIndicator(
-                                                      strokeWidth: 2,
-                                                      color: Colors.white,
-                                                    ),
+                                                          strokeWidth: 2,
+                                                          color: Colors.white,
+                                                        ),
                                                   )
                                                 : const Icon(
                                                     Icons.check_circle_outline,
                                                     size: 16,
                                                   ),
-                                            label: const Text('Approve Faculty'),
+                                            label: const Text(
+                                              'Approve Faculty',
+                                            ),
                                             style: ElevatedButton.styleFrom(
                                               backgroundColor:
                                                   Colors.green.shade700,
@@ -1993,8 +2083,8 @@ class _AdminPanelState extends State< AdminPanel > {
                           final roleColor = role == 'admin'
                               ? Colors.deepPurple
                               : role == 'teacher'
-                                  ? const Color(0xFF00897B)
-                                  : const Color(0xFF0277BD);
+                              ? const Color(0xFF00897B)
+                              : const Color(0xFF0277BD);
 
                           return Container(
                             margin: const EdgeInsets.only(bottom: 10),
@@ -2022,8 +2112,8 @@ class _AdminPanelState extends State< AdminPanel > {
                                     (name.isNotEmpty
                                             ? name[0]
                                             : email.isNotEmpty
-                                                ? email[0]
-                                                : 'U')
+                                            ? email[0]
+                                            : 'U')
                                         .toUpperCase(),
                                     style: TextStyle(
                                       color: roleColor,
@@ -2045,8 +2135,8 @@ class _AdminPanelState extends State< AdminPanel > {
                                               name.isNotEmpty
                                                   ? name
                                                   : username.isNotEmpty
-                                                      ? username
-                                                      : email,
+                                                  ? username
+                                                  : email,
                                               style: const TextStyle(
                                                 fontWeight: FontWeight.bold,
                                                 fontSize: 14.5,

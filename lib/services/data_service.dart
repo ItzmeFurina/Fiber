@@ -78,8 +78,8 @@ class DataService {
     fontSizeNotifier.value = size;
   }
 
-  // ── Cloudinary Configuration (For Videos up to 100 MB) ─────────
-  // Leave blank to use the automatic Firestore chunking fallback for small videos (<= 5 MB).
+  // ── Optional Cloudinary Configuration (for direct video delivery) ─────────
+  // Leave blank to use Firebase Storage; the app can also use Firestore chunking as a fallback.
   // When you create a free Cloudinary account, paste your Cloud Name and Unsigned Upload Preset here:
   static const String cloudinaryCloudName = '';
   static const String cloudinaryUploadPreset = '';
@@ -884,6 +884,49 @@ class DataService {
       }
     }
     return List<String>.unmodifiable(_systemLogs);
+  }
+
+  static Future<int> archiveSystemLogs({required String archivedBy}) async {
+    final snap = await _firestore.collection('system_logs').get();
+    if (snap.docs.isEmpty) {
+      _systemLogs.clear();
+      return 0;
+    }
+
+    var archivedCount = 0;
+    const batchLimit = 400;
+    var batch = _firestore.batch();
+    var batchWrites = 0;
+    final now = DateTime.now().toUtc().toIso8601String();
+
+    Future<void> commitBatch() async {
+      if (batchWrites == 0) return;
+      await batch.commit();
+      batch = _firestore.batch();
+      batchWrites = 0;
+    }
+
+    for (final doc in snap.docs) {
+      final archivedRef = _firestore
+          .collection('archived_system_logs')
+          .doc(doc.id);
+      batch.set(archivedRef, <String, dynamic>{
+        ...doc.data(),
+        'archivedAt': now,
+        'archivedBy': archivedBy,
+      });
+      batch.delete(doc.reference);
+      batchWrites++;
+      archivedCount++;
+
+      if (batchWrites >= batchLimit) {
+        await commitBatch();
+      }
+    }
+
+    await commitBatch();
+    _systemLogs.clear();
+    return archivedCount;
   }
 
   static String _formatLogFromData(Map<String, dynamic> data) {
@@ -1876,15 +1919,19 @@ class DataService {
     final extension = fileName.contains('.')
         ? fileName.split('.').last.toLowerCase()
         : '';
-    if (category == 'module' && extension != 'pdf') {
-      throw Exception('Study modules must be PDF files.');
-    }
     final isPicture = isPictureExtension(extension);
     final isVideo = isVideoExtension(extension);
+    if (category == 'module' && extension != 'pdf' && !isPicture && !isVideo) {
+      throw Exception('Study modules accept PDF, image, or MP4 video files.');
+    }
+    if (category != 'module' && (isPicture || isVideo)) {
+      throw Exception(
+        'Images and videos must be uploaded as study materials, not quizzes or mock exams.',
+      );
+    }
 
     const maxPictureBytes = 10 * 1024 * 1024; // 10 MB
-    const maxVideoBytes = 100 * 1024 * 1024; // 100 MB
-    const maxFallbackVideoBytes = 5 * 1024 * 1024; // 5 MB Firestore fallback
+    const maxVideoBytes = 400 * 1024 * 1024; // 400 MB
 
     int actualSize = pickedFileSize ?? bytes?.length ?? 0;
     if (actualSize == 0 && !kIsWeb && filePath != null) {
@@ -1902,12 +1949,7 @@ class DataService {
     if (isVideo) {
       if (actualSize > maxVideoBytes) {
         throw Exception(
-          'Video exceeds the 100 MB maximum upload limit (${(actualSize / (1024 * 1024)).toStringAsFixed(1)} MB).',
-        );
-      }
-      if (!isCloudinaryConfigured && actualSize > maxFallbackVideoBytes) {
-        throw Exception(
-          'Cloudinary is not configured yet. Without Cloudinary, video uploads are limited to 5 MB for the Firestore fallback (selected file is ${(actualSize / (1024 * 1024)).toStringAsFixed(1)} MB). Configure cloudinaryCloudName and cloudinaryUploadPreset in DataService to upload videos up to 100 MB.',
+          'Video exceeds the 400 MB maximum upload limit (${(actualSize / (1024 * 1024)).toStringAsFixed(1)} MB).',
         );
       }
     }
@@ -1926,6 +1968,7 @@ class DataService {
       );
     }
     if (category == 'module' &&
+        extension == 'pdf' &&
         !_validateFileSignature(fileBytes!, extension)) {
       throw Exception('The selected file is not a valid PDF.');
     }
@@ -2028,13 +2071,20 @@ class DataService {
       final fileBytes = await _getBytes(bytes: rawBytes, filePath: filePath);
       final ext = (draft.fileType ?? '').trim().toLowerCase();
       if (draft.category == 'module') {
-        if (ext != 'pdf') {
-          throw Exception('Study modules must be PDF files.');
+        final isPicture = isPictureExtension(ext);
+        final isVideo = isVideoExtension(ext);
+        if (ext != 'pdf' && !isPicture && !isVideo) {
+          throw Exception(
+            'Study modules accept PDF, image, or MP4 video files.',
+          );
         }
-        if (fileBytes == null ||
-            fileBytes.isEmpty ||
-            !_validateFileSignature(fileBytes, ext)) {
-          throw Exception('The selected file is not a valid PDF.');
+        if (fileBytes == null || fileBytes.isEmpty) {
+          throw Exception('The selected file is empty or could not be read.');
+        }
+        if (!_validateFileSignature(fileBytes, ext)) {
+          throw Exception(
+            'File signature does not match a valid .${ext.toUpperCase()} study material.',
+          );
         }
       }
       final mime = draft.mimeType ?? _mimeTypeForExtension(ext);
@@ -2076,13 +2126,13 @@ class DataService {
           });
           try {
             final snapshot = await uploadTask.timeout(
-              const Duration(seconds: 25),
+              const Duration(minutes: 10),
             );
             final downloadUrl = await snapshot.ref.getDownloadURL();
             if (downloadUrl.isNotEmpty) {
               savedStoragePath = storagePath;
-              // For videos or large files where Storage succeeds, store downloadUrl if not chunked
-              if (isVideoExtension(ext) &&
+              // For media or large files where Storage succeeds, store downloadUrl if not chunked.
+              if ((isPictureExtension(ext) || isVideoExtension(ext)) &&
                   (finalFileUrl == null || !finalFileUrl.startsWith('http'))) {
                 finalFileUrl = downloadUrl;
               }
