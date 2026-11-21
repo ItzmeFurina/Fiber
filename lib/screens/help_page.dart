@@ -328,6 +328,7 @@ class _StepTile extends StatelessWidget {
                 const SizedBox(height: 6),
                 Text(
                   step.body,
+                  textAlign: TextAlign.justify,
                   style: const TextStyle(
                     fontSize: 14,
                     height: 1.5,
@@ -375,6 +376,7 @@ class _FaqTile extends StatelessWidget {
             alignment: Alignment.centerLeft,
             child: Text(
               answer,
+              textAlign: TextAlign.justify,
               style: const TextStyle(
                 fontSize: 13.5,
                 height: 1.5,

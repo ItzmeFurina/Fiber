@@ -155,7 +155,7 @@ class _LoginScreenState extends State<LoginScreen> {
     );
   }
 
-  Future< void > _submit() async {
+  Future<void> _submit() async {
     if (!_formKey.currentState!.validate()) return;
     setState(() => _isLoading = true);
 
@@ -326,7 +326,10 @@ class _LoginScreenState extends State<LoginScreen> {
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
                 Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 10,
+                    vertical: 4,
+                  ),
                   decoration: BoxDecoration(
                     color: Colors.cyanAccent.withOpacity(0.15),
                     borderRadius: BorderRadius.circular(12),
@@ -334,8 +337,11 @@ class _LoginScreenState extends State<LoginScreen> {
                   child: const Row(
                     mainAxisSize: MainAxisSize.min,
                     children: [
-                      Icon(Icons.verified_user_rounded,
-                          size: 13, color: Colors.cyanAccent),
+                      Icon(
+                        Icons.verified_user_rounded,
+                        size: 13,
+                        color: Colors.cyanAccent,
+                      ),
                       SizedBox(width: 4),
                       Text(
                         'Secure CvSU Portal',
@@ -364,7 +370,10 @@ class _LoginScreenState extends State<LoginScreen> {
             ),
             const SizedBox(height: 10),
             Container(
-              padding: const EdgeInsets.all(10),
+              width: 84,
+              height: 84,
+              padding: const EdgeInsets.all(6),
+              alignment: Alignment.center,
               decoration: BoxDecoration(
                 color: Colors.white.withOpacity(0.12),
                 shape: BoxShape.circle,
@@ -372,9 +381,9 @@ class _LoginScreenState extends State<LoginScreen> {
               ),
               child: Image.asset(
                 'lib/assets/Logo/fiber_logo.png',
-                height: 52,
-                width: 52,
-                fit: BoxFit.contain,
+                height: 72,
+                width: 72,
+                fit: BoxFit.cover,
                 errorBuilder: (_, __, ___) => const Icon(
                   Icons.set_meal_rounded,
                   size: 44,
@@ -385,10 +394,11 @@ class _LoginScreenState extends State<LoginScreen> {
             const SizedBox(height: 10),
             Text(
               _isSignUp ? 'Create Student Account' : 'Welcome Back!',
-              style: GoogleFonts.playfairDisplay(
-                fontSize: 27,
-                fontWeight: FontWeight.bold,
+              style: GoogleFonts.roboto(
+                fontSize: 26,
+                fontWeight: FontWeight.w700,
                 color: Colors.white,
+                letterSpacing: -0.35,
               ),
               textAlign: TextAlign.center,
             ),
@@ -421,7 +431,10 @@ class _LoginScreenState extends State<LoginScreen> {
                         decoration: BoxDecoration(
                           gradient: !_isSignUp
                               ? const LinearGradient(
-                                  colors: [Color(0xFF00BCD4), Color(0xFF0288D1)],
+                                  colors: [
+                                    Color(0xFF00BCD4),
+                                    Color(0xFF0288D1),
+                                  ],
                                 )
                               : null,
                           borderRadius: BorderRadius.circular(24),
@@ -447,7 +460,10 @@ class _LoginScreenState extends State<LoginScreen> {
                         decoration: BoxDecoration(
                           gradient: _isSignUp
                               ? const LinearGradient(
-                                  colors: [Color(0xFF00BCD4), Color(0xFF0288D1)],
+                                  colors: [
+                                    Color(0xFF00BCD4),
+                                    Color(0xFF0288D1),
+                                  ],
                                 )
                               : null,
                           borderRadius: BorderRadius.circular(24),
@@ -493,7 +509,9 @@ class _LoginScreenState extends State<LoginScreen> {
               controller: _passwordCtrl,
               label: 'Password',
               icon: Icons.lock_outline_rounded,
-              hint: _isSignUp ? '8–20 chars, uppercase, lowercase, number' : null,
+              hint: _isSignUp
+                  ? '8–20 chars, uppercase, lowercase, number'
+                  : null,
               isPassword: true,
               obscureValue: _obscurePassword,
               onToggleObscure: () =>
@@ -581,15 +599,21 @@ class _LoginScreenState extends State<LoginScreen> {
           const SizedBox(height: 8),
           Row(
             children: [
-              Expanded(child: _requirementRow('8–20 Characters', _hasValidLength)),
+              Expanded(
+                child: _requirementRow('8–20 Characters', _hasValidLength),
+              ),
               const SizedBox(width: 8),
-              Expanded(child: _requirementRow('Uppercase (A–Z)', _hasUppercase)),
+              Expanded(
+                child: _requirementRow('Uppercase (A–Z)', _hasUppercase),
+              ),
             ],
           ),
           const SizedBox(height: 6),
           Row(
             children: [
-              Expanded(child: _requirementRow('Lowercase (a–z)', _hasLowercase)),
+              Expanded(
+                child: _requirementRow('Lowercase (a–z)', _hasLowercase),
+              ),
               const SizedBox(width: 8),
               Expanded(child: _requirementRow('Number (0–9)', _hasNumber)),
             ],
@@ -715,7 +739,9 @@ class _LoginScreenState extends State<LoginScreen> {
             return 'Include at least one number (0-9)';
           }
         }
-        if (_isSignUp && label == 'Confirm Password' && v != _passwordCtrl.text) {
+        if (_isSignUp &&
+            label == 'Confirm Password' &&
+            v != _passwordCtrl.text) {
           return 'Passwords do not match';
         }
         return null;
@@ -773,13 +799,12 @@ class _LoginScreenState extends State<LoginScreen> {
     );
   }
 
-  Future< void > _openForgotPasswordScreen() async {
-    final recoveredEmail = await Navigator.push< String >(
+  Future<void> _openForgotPasswordScreen() async {
+    final recoveredEmail = await Navigator.push<String>(
       context,
       MaterialPageRoute(
-        builder: (_) => ForgotPasswordScreen(
-          initialEmail: _emailCtrl.text.trim(),
-        ),
+        builder: (_) =>
+            ForgotPasswordScreen(initialEmail: _emailCtrl.text.trim()),
       ),
     );
     if (!mounted) return;
@@ -802,7 +827,7 @@ class _LoginScreenState extends State<LoginScreen> {
   }
 
   void _showFirstTimeTeacherPasswordSetupModal(
-    Map< String, dynamic > teacherData,
+    Map<String, dynamic> teacherData,
   ) {
     final newPwdCtrl = TextEditingController();
     final confirmPwdCtrl = TextEditingController();
@@ -831,7 +856,9 @@ class _LoginScreenState extends State<LoginScreen> {
               child: Row(
                 children: [
                   Icon(
-                    ok ? Icons.check_circle_rounded : Icons.radio_button_unchecked,
+                    ok
+                        ? Icons.check_circle_rounded
+                        : Icons.radio_button_unchecked,
                     size: 15,
                     color: ok ? Colors.green.shade700 : Colors.blueGrey,
                   ),
@@ -981,8 +1008,14 @@ class _LoginScreenState extends State<LoginScreen> {
                       child: Column(
                         children: [
                           checkItem('8 to 20 characters long', validLen),
-                          checkItem('At least 1 uppercase letter (A–Z)', hasUpper),
-                          checkItem('At least 1 lowercase letter (a–z)', hasLower),
+                          checkItem(
+                            'At least 1 uppercase letter (A–Z)',
+                            hasUpper,
+                          ),
+                          checkItem(
+                            'At least 1 lowercase letter (a–z)',
+                            hasLower,
+                          ),
                           checkItem('At least 1 number (0–9)', hasNum),
                         ],
                       ),
@@ -1069,9 +1102,9 @@ class _LoginScreenState extends State<LoginScreen> {
                         });
                         final user =
                             await AuthService.completeFirstTimeTeacherSetup(
-                          email: teacherEmail,
-                          newPassword: newPwdCtrl.text,
-                        );
+                              email: teacherEmail,
+                              newPassword: newPwdCtrl.text,
+                            );
                         if (!mounted) return;
                         if (user != null) {
                           Navigator.pop(ctx);
@@ -1079,7 +1112,8 @@ class _LoginScreenState extends State<LoginScreen> {
                         } else {
                           setModalState(() {
                             isSaving = false;
-                            errorMsg = AuthService.lastErrorMessage ??
+                            errorMsg =
+                                AuthService.lastErrorMessage ??
                                 'Could not complete password setup.';
                           });
                         }
@@ -1103,7 +1137,7 @@ class _LoginScreenState extends State<LoginScreen> {
       'Post-Harvest Fisheries',
       'Aquatic Resources & Ecology',
     ];
-    final Set< String > selectedSubjects = {'Aquaculture'};
+    final Set<String> selectedSubjects = {'Aquaculture'};
     bool showSubjectList = false;
     String? errorMsg;
     bool isSubmitting = false;
@@ -1263,7 +1297,7 @@ class _LoginScreenState extends State<LoginScreen> {
                             ),
                           ),
                           child: DropdownButtonHideUnderline(
-                            child: DropdownButton< String >(
+                            child: DropdownButton<String>(
                               value: selectedTitle,
                               dropdownColor: const Color(0xFF082D49),
                               icon: const Icon(
@@ -1278,7 +1312,7 @@ class _LoginScreenState extends State<LoginScreen> {
                               ),
                               items: titles
                                   .map(
-                                    (t) => DropdownMenuItem< String >(
+                                    (t) => DropdownMenuItem<String>(
                                       value: t,
                                       child: Text(t),
                                     ),
@@ -1521,8 +1555,9 @@ class _LoginScreenState extends State<LoginScreen> {
                             ? null
                             : () async {
                                 final rawName = nameCtrl.text.trim();
-                                final email =
-                                    emailCtrl.text.trim().toLowerCase();
+                                final email = emailCtrl.text
+                                    .trim()
+                                    .toLowerCase();
                                 if (rawName.isEmpty || email.isEmpty) {
                                   setModalState(
                                     () => errorMsg =
@@ -1530,17 +1565,19 @@ class _LoginScreenState extends State<LoginScreen> {
                                   );
                                   return;
                                 }
-                                if (!RegExp(r'^[^@\s]+@[^@\s]+\.[^@\s]+$')
-                                    .hasMatch(email)) {
+                                if (!RegExp(
+                                  r'^[^@\s]+@[^@\s]+\.[^@\s]+$',
+                                ).hasMatch(email)) {
                                   setModalState(
                                     () => errorMsg =
                                         'Please enter a valid email address.',
                                   );
                                   return;
                                 }
-                                final formattedName = rawName
-                                        .toLowerCase()
-                                        .startsWith(selectedTitle.toLowerCase())
+                                final formattedName =
+                                    rawName.toLowerCase().startsWith(
+                                      selectedTitle.toLowerCase(),
+                                    )
                                     ? rawName
                                     : '$selectedTitle $rawName';
                                 final autoUsername = email.split('@').first;
@@ -1571,9 +1608,10 @@ class _LoginScreenState extends State<LoginScreen> {
                                 } catch (e) {
                                   setModalState(() {
                                     isSubmitting = false;
-                                    errorMsg = e
-                                        .toString()
-                                        .replaceFirst('Exception: ', '');
+                                    errorMsg = e.toString().replaceFirst(
+                                      'Exception: ',
+                                      '',
+                                    );
                                   });
                                 }
                               },
@@ -1663,10 +1701,10 @@ class ForgotPasswordScreen extends StatefulWidget {
   const ForgotPasswordScreen({super.key, this.initialEmail = ''});
 
   @override
-  State< ForgotPasswordScreen > createState() => _ForgotPasswordScreenState();
+  State<ForgotPasswordScreen> createState() => _ForgotPasswordScreenState();
 }
 
-class _ForgotPasswordScreenState extends State< ForgotPasswordScreen > {
+class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
   late final TextEditingController _emailCtrl;
   final TextEditingController _otpCtrl = TextEditingController();
   final TextEditingController _newPwdCtrl = TextEditingController();
@@ -1714,7 +1752,7 @@ class _ForgotPasswordScreenState extends State< ForgotPasswordScreen > {
   bool get _passwordValid =>
       _validLength && _hasUpper && _hasLower && _hasNumber;
 
-  Future< void > _sendRecoveryOtp() async {
+  Future<void> _sendRecoveryOtp() async {
     final cleanEmail = _emailCtrl.text.trim().toLowerCase();
     if (cleanEmail.isEmpty ||
         !RegExp(r'^[^@\s]+@[^@\s]+\.[^@\s]+$').hasMatch(cleanEmail)) {
@@ -1747,8 +1785,8 @@ class _ForgotPasswordScreenState extends State< ForgotPasswordScreen > {
       }
 
       _matchedUserId = (userDoc['id'] ?? '').toString();
-      _matchedUserName =
-          (userDoc['name'] ?? userDoc['username'] ?? '').toString();
+      _matchedUserName = (userDoc['name'] ?? userDoc['username'] ?? '')
+          .toString();
 
       final result = await DataService.sendEmailOtp(
         email: cleanEmail,
@@ -1810,7 +1848,7 @@ class _ForgotPasswordScreenState extends State< ForgotPasswordScreen > {
     }
   }
 
-  Future< void > _verifyRecoveryOtp() async {
+  Future<void> _verifyRecoveryOtp() async {
     if (_verifyingOtp) return;
     final cleanEmail = _emailCtrl.text.trim().toLowerCase();
     setState(() => _verifyingOtp = true);
@@ -1842,7 +1880,7 @@ class _ForgotPasswordScreenState extends State< ForgotPasswordScreen > {
     });
   }
 
-  Future< void > _completePasswordRecovery() async {
+  Future<void> _completePasswordRecovery() async {
     if (_updatingPassword) return;
     if (!_otpVerified) {
       setState(() {
@@ -1882,7 +1920,7 @@ class _ForgotPasswordScreenState extends State< ForgotPasswordScreen > {
     setState(() => _updatingPassword = false);
 
     if (ok) {
-      await showDialog< void >(
+      await showDialog<void>(
         context: context,
         barrierDismissible: false,
         builder: (dialogCtx) => AlertDialog(
@@ -2083,8 +2121,9 @@ class _ForgotPasswordScreenState extends State< ForgotPasswordScreen > {
                                   color: Colors.cyanAccent,
                                 ),
                                 filled: true,
-                                fillColor:
-                                    const Color(0xFF031C32).withOpacity(0.65),
+                                fillColor: const Color(
+                                  0xFF031C32,
+                                ).withOpacity(0.65),
                                 border: OutlineInputBorder(
                                   borderRadius: BorderRadius.circular(16),
                                 ),
@@ -2096,8 +2135,8 @@ class _ForgotPasswordScreenState extends State< ForgotPasswordScreen > {
                               ElevatedButton.icon(
                                 onPressed:
                                     (_sendingOtp || _resendCooldownSeconds > 0)
-                                        ? null
-                                        : _sendRecoveryOtp,
+                                    ? null
+                                    : _sendRecoveryOtp,
                                 icon: _sendingOtp
                                     ? const SizedBox(
                                         width: 16,
@@ -2112,10 +2151,10 @@ class _ForgotPasswordScreenState extends State< ForgotPasswordScreen > {
                                   _sendingOtp
                                       ? 'Sending OTP...'
                                       : !_otpSent
-                                          ? 'Step 1: Send 6-Digit OTP to Email'
-                                          : (_resendCooldownSeconds > 0
-                                              ? 'Resend OTP (${_resendCooldownSeconds}s)'
-                                              : 'Resend OTP'),
+                                      ? 'Step 1: Send 6-Digit OTP to Email'
+                                      : (_resendCooldownSeconds > 0
+                                            ? 'Resend OTP (${_resendCooldownSeconds}s)'
+                                            : 'Resend OTP'),
                                   style: const TextStyle(
                                     fontWeight: FontWeight.bold,
                                   ),
@@ -2123,8 +2162,9 @@ class _ForgotPasswordScreenState extends State< ForgotPasswordScreen > {
                                 style: ElevatedButton.styleFrom(
                                   backgroundColor: const Color(0xFF00BCD4),
                                   foregroundColor: Colors.white,
-                                  padding:
-                                      const EdgeInsets.symmetric(vertical: 13),
+                                  padding: const EdgeInsets.symmetric(
+                                    vertical: 13,
+                                  ),
                                   shape: RoundedRectangleBorder(
                                     borderRadius: BorderRadius.circular(16),
                                   ),
@@ -2166,19 +2206,21 @@ class _ForgotPasswordScreenState extends State< ForgotPasswordScreen > {
                                           color: Colors.white38,
                                         ),
                                         filled: true,
-                                        fillColor: const Color(0xFF031C32)
-                                            .withOpacity(0.65),
+                                        fillColor: const Color(
+                                          0xFF031C32,
+                                        ).withOpacity(0.65),
                                         border: OutlineInputBorder(
-                                          borderRadius:
-                                              BorderRadius.circular(14),
+                                          borderRadius: BorderRadius.circular(
+                                            14,
+                                          ),
                                         ),
                                       ),
                                     ),
                                   ),
                                   const SizedBox(width: 10),
                                   ElevatedButton(
-                                    onPressed: (_otpSecondsLeft > 0 &&
-                                            !_verifyingOtp)
+                                    onPressed:
+                                        (_otpSecondsLeft > 0 && !_verifyingOtp)
                                         ? _verifyRecoveryOtp
                                         : null,
                                     style: ElevatedButton.styleFrom(
@@ -2189,8 +2231,7 @@ class _ForgotPasswordScreenState extends State< ForgotPasswordScreen > {
                                         vertical: 15,
                                       ),
                                       shape: RoundedRectangleBorder(
-                                        borderRadius:
-                                            BorderRadius.circular(14),
+                                        borderRadius: BorderRadius.circular(14),
                                       ),
                                     ),
                                     child: _verifyingOtp
@@ -2293,8 +2334,9 @@ class _ForgotPasswordScreenState extends State< ForgotPasswordScreen > {
                                     ),
                                   ),
                                   filled: true,
-                                  fillColor: const Color(0xFF031C32)
-                                      .withOpacity(0.65),
+                                  fillColor: const Color(
+                                    0xFF031C32,
+                                  ).withOpacity(0.65),
                                   border: OutlineInputBorder(
                                     borderRadius: BorderRadius.circular(14),
                                   ),
@@ -2304,8 +2346,9 @@ class _ForgotPasswordScreenState extends State< ForgotPasswordScreen > {
                               Container(
                                 padding: const EdgeInsets.all(10),
                                 decoration: BoxDecoration(
-                                  color: const Color(0xFF031C32)
-                                      .withOpacity(0.55),
+                                  color: const Color(
+                                    0xFF031C32,
+                                  ).withOpacity(0.55),
                                   borderRadius: BorderRadius.circular(12),
                                   border: Border.all(color: Colors.white12),
                                 ),
@@ -2357,8 +2400,9 @@ class _ForgotPasswordScreenState extends State< ForgotPasswordScreen > {
                                     ),
                                   ),
                                   filled: true,
-                                  fillColor: const Color(0xFF031C32)
-                                      .withOpacity(0.65),
+                                  fillColor: const Color(
+                                    0xFF031C32,
+                                  ).withOpacity(0.65),
                                   border: OutlineInputBorder(
                                     borderRadius: BorderRadius.circular(14),
                                   ),
@@ -2388,8 +2432,9 @@ class _ForgotPasswordScreenState extends State< ForgotPasswordScreen > {
                                 style: ElevatedButton.styleFrom(
                                   backgroundColor: const Color(0xFF00BCD4),
                                   foregroundColor: Colors.white,
-                                  padding:
-                                      const EdgeInsets.symmetric(vertical: 14),
+                                  padding: const EdgeInsets.symmetric(
+                                    vertical: 14,
+                                  ),
                                   shape: RoundedRectangleBorder(
                                     borderRadius: BorderRadius.circular(20),
                                   ),

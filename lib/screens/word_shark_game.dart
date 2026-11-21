@@ -30,15 +30,15 @@ class WordSharkGame extends StatefulWidget {
   const WordSharkGame({super.key});
 
   @override
-  State< WordSharkGame > createState() => _WordSharkGameState();
+  State<WordSharkGame> createState() => _WordSharkGameState();
 }
 
-class _WordSharkGameState extends State< WordSharkGame > {
+class _WordSharkGameState extends State<WordSharkGame> {
   static const int _maxLevel = 100;
 
   // Expanded Fisheries Technologist Licensure Exam (FBLE) Glossary across all 4 board subjects
   // Ordered from shorter beginner-friendly terms (3-6 letters) to advanced technical terms (7-12 letters)
-  static const List< WordSharkQuestionItem > _fbleGlossary = [
+  static const List<WordSharkQuestionItem> _fbleGlossary = [
     WordSharkQuestionItem(
       term: 'FRY',
       clue:
@@ -336,19 +336,19 @@ class _WordSharkGameState extends State< WordSharkGame > {
   ];
 
   final Random _random = Random();
-  List< WordSharkQuestionItem > _levelQuestions = [];
+  List<WordSharkQuestionItem> _levelQuestions = [];
   int _currentLevel = 1;
   int _unlockedLevel = 1;
-  Set< int > _completedLevels = < int >{};
-  Map< String, int > _levelScores = < String, int >{};
-  Map< String, int > _levelStars = < String, int >{};
+  Set<int> _completedLevels = <int>{};
+  Map<String, int> _levelScores = <String, int>{};
+  Map<String, int> _levelStars = <String, int>{};
   int _highestScore = 0;
   int _bestLevelScore = 0;
 
   bool _inGameplay = false;
   bool _loadingProgress = true;
   String _leaderboardScope = 'all';
-  Future< List< Map< String, dynamic > > >? _openingLeaderboardFuture;
+  Future<List<Map<String, dynamic>>>? _openingLeaderboardFuture;
 
   int _questionIndex = 0;
 
@@ -360,8 +360,8 @@ class _WordSharkGameState extends State< WordSharkGame > {
   int _secondsElapsed = 0;
   Timer? _timer;
 
-  List< _TileData? > _answerSlots = [];
-  List< _TileData > _availableTiles = [];
+  List<_TileData?> _answerSlots = [];
+  List<_TileData> _availableTiles = [];
   String? _feedbackBanner;
   bool _feedbackIsPositive = true;
   bool _questionLocked = false;
@@ -381,7 +381,7 @@ class _WordSharkGameState extends State< WordSharkGame > {
     super.dispose();
   }
 
-  Future< void > _initializeWordSharkHub() async {
+  Future<void> _initializeWordSharkHub() async {
     final uid = AuthService.currentUser?.id;
     final progress = await DataService.loadMiniGameProgress(
       gameType: 'word_shark',
@@ -399,16 +399,17 @@ class _WordSharkGameState extends State< WordSharkGame > {
         _maxLevel,
       );
       _currentLevel = _unlockedLevel;
-      _completedLevels = Set< int >.from(
-        (progress['completedLevels'] as List< dynamic >? ?? const [])
-            .map((e) => (e as num).toInt()),
+      _completedLevels = Set<int>.from(
+        (progress['completedLevels'] as List<dynamic>? ?? const []).map(
+          (e) => (e as num).toInt(),
+        ),
       );
-      _levelScores = Map< String, int >.from(
+      _levelScores = Map<String, int>.from(
         (progress['levelScores'] as Map? ?? const {}).map(
           (k, v) => MapEntry(k.toString(), (v as num).toInt()),
         ),
       );
-      _levelStars = Map< String, int >.from(
+      _levelStars = Map<String, int>.from(
         (progress['levelStars'] as Map? ?? const {}).map(
           (k, v) => MapEntry(k.toString(), (v as num).toInt()),
         ),
@@ -478,17 +479,17 @@ class _WordSharkGameState extends State< WordSharkGame > {
     });
   }
 
-  List< WordSharkQuestionItem > _buildQuestionsForLevel(int level) {
-    final pool = < WordSharkQuestionItem >[..._fbleGlossary];
+  List<WordSharkQuestionItem> _buildQuestionsForLevel(int level) {
+    final pool = <WordSharkQuestionItem>[..._fbleGlossary];
 
     final enrolledModules = DataService.getStudentEnrolledModules();
     for (final mod in enrolledModules) {
       for (final q in mod.questions) {
         if (q.correctIndex >= 0 && q.correctIndex < q.choices.length) {
-          final ans = q.choices[q.correctIndex]
-              .trim()
-              .toUpperCase()
-              .replaceAll(RegExp(r'[^A-Z]'), '');
+          final ans = q.choices[q.correctIndex].trim().toUpperCase().replaceAll(
+            RegExp(r'[^A-Z]'),
+            '',
+          );
           if (ans.length >= 3 &&
               ans.length <= 12 &&
               !pool.any((item) => item.term == ans)) {
@@ -532,7 +533,7 @@ class _WordSharkGameState extends State< WordSharkGame > {
         )
         .toList();
     if (filtered.length < questionsPerLevel) {
-      filtered = List< WordSharkQuestionItem >.from(pool);
+      filtered = List<WordSharkQuestionItem>.from(pool);
     }
     filtered.shuffle(Random());
     return filtered.take(questionsPerLevel).toList();
@@ -547,19 +548,19 @@ class _WordSharkGameState extends State< WordSharkGame > {
     _livesRemaining = 3;
     _questionLocked = false;
     _feedbackBanner = null;
-    _answerSlots = List< _TileData? >.filled(word.length, null);
+    _answerSlots = List<_TileData?>.filled(word.length, null);
 
     final requiredLetters = word.split('');
     const alphabet = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ';
     final decoyCount = _currentLevel <= 15
         ? 1
         : _currentLevel <= 45
-            ? 2
-            : _currentLevel <= 75
-                ? 3
-                : 4;
+        ? 2
+        : _currentLevel <= 75
+        ? 3
+        : 4;
 
-    final combinedLetters = < String >[...requiredLetters];
+    final combinedLetters = <String>[...requiredLetters];
     for (int i = 0; i < decoyCount; i++) {
       combinedLetters.add(alphabet[_random.nextInt(alphabet.length)]);
     }
@@ -572,7 +573,7 @@ class _WordSharkGameState extends State< WordSharkGame > {
       }
     }
 
-    _availableTiles = List< _TileData >.generate(
+    _availableTiles = List<_TileData>.generate(
       combinedLetters.length,
       (i) => _TileData(id: i, letter: combinedLetters[i]),
     );
@@ -647,11 +648,10 @@ class _WordSharkGameState extends State< WordSharkGame > {
         _correctCount++;
         _totalQuestionsAnswered++;
         _feedbackIsPositive = true;
-        _feedbackBanner =
-            '✓ Correct! "$target" (+$earnedPoints pts)';
+        _feedbackBanner = '✓ Correct! "$target" (+$earnedPoints pts)';
       });
 
-      Future< void >.delayed(const Duration(milliseconds: 1400), () {
+      Future<void>.delayed(const Duration(milliseconds: 1400), () {
         if (!mounted) return;
         _advanceToNextQuestion();
       });
@@ -667,10 +667,9 @@ class _WordSharkGameState extends State< WordSharkGame > {
           // Out of attempts: reveal the correct answer and allow student to proceed
           _questionLocked = true;
           _totalQuestionsAnswered++;
-          _feedbackBanner =
-              '🦈 Out of attempts! Correct Answer: $target';
+          _feedbackBanner = '🦈 Out of attempts! Correct Answer: $target';
           final correctChars = target.split('');
-          _answerSlots = List< _TileData? >.generate(
+          _answerSlots = List<_TileData?>.generate(
             correctChars.length,
             (i) => _TileData(id: 900 + i, letter: correctChars[i]),
           );
@@ -690,7 +689,7 @@ class _WordSharkGameState extends State< WordSharkGame > {
     }
   }
 
-  Future< void > _onLevelCompleted() async {
+  Future<void> _onLevelCompleted() async {
     _timer?.cancel();
     SoundService.playGameComplete();
 
@@ -700,8 +699,8 @@ class _WordSharkGameState extends State< WordSharkGame > {
     final earnedStars = accuracy >= 90
         ? 3
         : accuracy >= 60
-            ? 2
-            : 1;
+        ? 2
+        : 1;
 
     DataService.addGamePlayed();
 
@@ -718,18 +717,18 @@ class _WordSharkGameState extends State< WordSharkGame > {
       }
       if (mounted) {
         setState(() {
-          _unlockedLevel =
-              (updated['unlockedLevel'] as int?) ?? _unlockedLevel;
-          _completedLevels = Set< int >.from(
-            (updated['completedLevels'] as List< dynamic >? ?? const [])
-                .map((e) => (e as num).toInt()),
+          _unlockedLevel = (updated['unlockedLevel'] as int?) ?? _unlockedLevel;
+          _completedLevels = Set<int>.from(
+            (updated['completedLevels'] as List<dynamic>? ?? const []).map(
+              (e) => (e as num).toInt(),
+            ),
           );
-          _levelScores = Map< String, int >.from(
+          _levelScores = Map<String, int>.from(
             (updated['levelScores'] as Map? ?? const {}).map(
               (k, v) => MapEntry(k.toString(), (v as num).toInt()),
             ),
           );
-          _levelStars = Map< String, int >.from(
+          _levelStars = Map<String, int>.from(
             (updated['levelStars'] as Map? ?? const {}).map(
               (k, v) => MapEntry(k.toString(), (v as num).toInt()),
             ),
@@ -771,9 +770,7 @@ class _WordSharkGameState extends State< WordSharkGame > {
               children: [
                 if (passedLevel)
                   const Positioned.fill(
-                    child: IgnorePointer(
-                      child: _WordSharkConfettiOverlay(),
-                    ),
+                    child: IgnorePointer(child: _WordSharkConfettiOverlay()),
                   ),
                 Dialog(
                   backgroundColor: Colors.transparent,
@@ -822,7 +819,7 @@ class _WordSharkGameState extends State< WordSharkGame > {
                           if (passedLevel)
                             Row(
                               mainAxisAlignment: MainAxisAlignment.center,
-                              children: List< Widget >.generate(3, (i) {
+                              children: List<Widget>.generate(3, (i) {
                                 final earned = i < earnedStars;
                                 return Padding(
                                   padding: const EdgeInsets.symmetric(
@@ -856,8 +853,8 @@ class _WordSharkGameState extends State< WordSharkGame > {
                           Text(
                             passedLevel
                                 ? (_currentLevel < _maxLevel
-                                    ? 'Level ${_currentLevel + 1} is now unlocked!'
-                                    : 'You conquered all 100 levels of Word Shark!')
+                                      ? 'Level ${_currentLevel + 1} is now unlocked!'
+                                      : 'You conquered all 100 levels of Word Shark!')
                                 : 'Spell at least 1 word correctly to unlock the next level!',
                             textAlign: TextAlign.center,
                             style: const TextStyle(
@@ -934,8 +931,10 @@ class _WordSharkGameState extends State< WordSharkGame > {
                                   Navigator.pop(ctx);
                                   _startNewGameSession(level: _currentLevel);
                                 },
-                                icon:
-                                    const Icon(Icons.replay_rounded, size: 17),
+                                icon: const Icon(
+                                  Icons.replay_rounded,
+                                  size: 17,
+                                ),
                                 label: const Text('Replay'),
                               ),
                               if (passedLevel && _currentLevel < _maxLevel)
@@ -1051,7 +1050,7 @@ class _WordSharkGameState extends State< WordSharkGame > {
                     if (joinedCodes.length > 1)
                       Padding(
                         padding: const EdgeInsets.only(bottom: 12),
-                        child: DropdownButtonFormField< String >(
+                        child: DropdownButtonFormField<String>(
                           initialValue: selectedClass,
                           decoration: InputDecoration(
                             labelText: 'Select Class',
@@ -1062,7 +1061,7 @@ class _WordSharkGameState extends State< WordSharkGame > {
                           ),
                           items: joinedCodes
                               .map(
-                                (c) => DropdownMenuItem< String >(
+                                (c) => DropdownMenuItem<String>(
                                   value: c,
                                   child: Text('Class $c'),
                                 ),
@@ -1076,7 +1075,7 @@ class _WordSharkGameState extends State< WordSharkGame > {
                         ),
                       ),
                     Expanded(
-                      child: FutureBuilder< List< Map< String, dynamic > > >(
+                      child: FutureBuilder<List<Map<String, dynamic>>>(
                         future: DataService.loadClassGameLeaderboard(
                           classCode: selectedClass,
                           gameType: 'word_shark',
@@ -1121,10 +1120,10 @@ class _WordSharkGameState extends State< WordSharkGame > {
                                     backgroundColor: idx == 0
                                         ? Colors.amber
                                         : idx == 1
-                                            ? Colors.blueGrey.shade300
-                                            : idx == 2
-                                                ? Colors.brown.shade300
-                                                : const Color(0xFF0277BD),
+                                        ? Colors.blueGrey.shade300
+                                        : idx == 2
+                                        ? Colors.brown.shade300
+                                        : const Color(0xFF0277BD),
                                     child: Text(
                                       '#${idx + 1}',
                                       style: const TextStyle(
@@ -1240,11 +1239,7 @@ class _WordSharkGameState extends State< WordSharkGame > {
           gradient: LinearGradient(
             begin: Alignment.topCenter,
             end: Alignment.bottomCenter,
-            colors: [
-              Color(0xFF041C32),
-              Color(0xFF0B3C5D),
-              Color(0xFF0277BD),
-            ],
+            colors: [Color(0xFF041C32), Color(0xFF0B3C5D), Color(0xFF0277BD)],
           ),
         ),
         child: SafeArea(
@@ -1255,8 +1250,10 @@ class _WordSharkGameState extends State< WordSharkGame > {
               final isCompactPhone = screenH < 640;
               // Dynamically size slot & tile blocks so long words fit on any phone width
               final wordLen = max(1, _answerSlots.length);
-              final maxTileWidth =
-                  ((screenW - 48) / min(wordLen, 8) - 6).clamp(32.0, 44.0);
+              final maxTileWidth = ((screenW - 48) / min(wordLen, 8) - 6).clamp(
+                32.0,
+                44.0,
+              );
               final tileHeight = (maxTileWidth * 1.12).clamp(36.0, 48.0);
 
               return Padding(
@@ -1298,7 +1295,7 @@ class _WordSharkGameState extends State< WordSharkGame > {
                             ),
                           ),
                           Row(
-                            children: List< Widget >.generate(3, (i) {
+                            children: List<Widget>.generate(3, (i) {
                               final alive = i < _livesRemaining;
                               return Padding(
                                 padding: const EdgeInsets.only(left: 3),
@@ -1306,8 +1303,9 @@ class _WordSharkGameState extends State< WordSharkGame > {
                                   alive
                                       ? Icons.favorite_rounded
                                       : Icons.favorite_border_rounded,
-                                  color:
-                                      alive ? Colors.redAccent : Colors.white38,
+                                  color: alive
+                                      ? Colors.redAccent
+                                      : Colors.white38,
                                   size: 19,
                                 ),
                               );
@@ -1333,8 +1331,8 @@ class _WordSharkGameState extends State< WordSharkGame > {
                       ),
                       child: LayoutBuilder(
                         builder: (context, barConstraints) {
-                          final maxTravel =
-                              (barConstraints.maxWidth - 84).clamp(0.0, 600.0);
+                          final maxTravel = (barConstraints.maxWidth - 84)
+                              .clamp(0.0, 600.0);
                           return Stack(
                             alignment: Alignment.centerLeft,
                             children: [
@@ -1344,11 +1342,11 @@ class _WordSharkGameState extends State< WordSharkGame > {
                                 left: maxTravel * sharkDanger,
                                 child: Row(
                                   children: [
-                                    Text(
-                                      '🦈',
-                                      style: TextStyle(
-                                        fontSize: isCompactPhone ? 24 : 28,
-                                      ),
+                                    Image.asset(
+                                      'lib/assets/images/Animated Shark Chomping Sequence.gif',
+                                      width: isCompactPhone ? 34 : 42,
+                                      height: isCompactPhone ? 34 : 42,
+                                      fit: BoxFit.contain,
                                     ),
                                     const SizedBox(width: 4),
                                     const Icon(
@@ -1359,15 +1357,16 @@ class _WordSharkGameState extends State< WordSharkGame > {
                                   ],
                                 ),
                               ),
-                              Positioned(
-                                right: 4,
-                                child: Text(
-                                  '🐟',
-                                  style: TextStyle(
-                                    fontSize: isCompactPhone ? 22 : 26,
+                              if (_livesRemaining > 0)
+                                Positioned(
+                                  right: 4,
+                                  child: Image.asset(
+                                    'lib/assets/images/Panicked Fish Sprint Animation.gif',
+                                    width: isCompactPhone ? 38 : 46,
+                                    height: isCompactPhone ? 38 : 46,
+                                    fit: BoxFit.contain,
                                   ),
                                 ),
-                              ),
                             ],
                           );
                         },
@@ -1444,11 +1443,11 @@ class _WordSharkGameState extends State< WordSharkGame > {
                               spacing: 5,
                               runSpacing: 7,
                               alignment: WrapAlignment.center,
-                              children: List< Widget >.generate(
+                              children: List<Widget>.generate(
                                 _answerSlots.length,
                                 (slotIdx) {
                                   final placedTile = _answerSlots[slotIdx];
-                                  return DragTarget< _TileData >(
+                                  return DragTarget<_TileData>(
                                     onWillAcceptWithDetails: (_) =>
                                         !_questionLocked,
                                     onAcceptWithDetails: (details) =>
@@ -1470,12 +1469,15 @@ class _WordSharkGameState extends State< WordSharkGame > {
                                             color: placedTile != null
                                                 ? const Color(0xFF00BCD4)
                                                 : isHovering
-                                                    ? Colors.cyanAccent
-                                                        .withOpacity(0.35)
-                                                    : Colors.white
-                                                        .withOpacity(0.14),
-                                            borderRadius:
-                                                BorderRadius.circular(10),
+                                                ? Colors.cyanAccent.withOpacity(
+                                                    0.35,
+                                                  )
+                                                : Colors.white.withOpacity(
+                                                    0.14,
+                                                  ),
+                                            borderRadius: BorderRadius.circular(
+                                              10,
+                                            ),
                                             border: Border.all(
                                               color: placedTile != null
                                                   ? Colors.white
@@ -1537,8 +1539,9 @@ class _WordSharkGameState extends State< WordSharkGame > {
                                       ElevatedButton(
                                         style: ElevatedButton.styleFrom(
                                           backgroundColor: Colors.white,
-                                          foregroundColor:
-                                              const Color(0xFF0B3C5D),
+                                          foregroundColor: const Color(
+                                            0xFF0B3C5D,
+                                          ),
                                         ),
                                         onPressed: _advanceToNextQuestion,
                                         child: const Text('Next Word'),
@@ -1582,8 +1585,9 @@ class _WordSharkGameState extends State< WordSharkGame > {
                                                   end: Alignment.bottomRight,
                                                 ),
                                           color: used ? Colors.white12 : null,
-                                          borderRadius:
-                                              BorderRadius.circular(11),
+                                          borderRadius: BorderRadius.circular(
+                                            11,
+                                          ),
                                           boxShadow: used
                                               ? null
                                               : [
@@ -1591,8 +1595,7 @@ class _WordSharkGameState extends State< WordSharkGame > {
                                                     color: Colors.black
                                                         .withOpacity(0.2),
                                                     blurRadius: 4,
-                                                    offset:
-                                                        const Offset(0, 2),
+                                                    offset: const Offset(0, 2),
                                                   ),
                                                 ],
                                         ),
@@ -1610,7 +1613,7 @@ class _WordSharkGameState extends State< WordSharkGame > {
                                         return tileWidget;
                                       }
 
-                                      return Draggable< _TileData >(
+                                      return Draggable<_TileData>(
                                         data: tile,
                                         feedback: Material(
                                           color: Colors.transparent,
@@ -1658,8 +1661,9 @@ class _WordSharkGameState extends State< WordSharkGame > {
                                             : () {
                                                 SoundService.playTap();
                                                 setState(() {
-                                                  _availableTiles
-                                                      .shuffle(_random);
+                                                  _availableTiles.shuffle(
+                                                    _random,
+                                                  );
                                                 });
                                               },
                                         icon: const Icon(
@@ -1756,11 +1760,7 @@ class _WordSharkGameState extends State< WordSharkGame > {
           gradient: LinearGradient(
             begin: Alignment.topCenter,
             end: Alignment.bottomCenter,
-            colors: [
-              Color(0xFF041C32),
-              Color(0xFF082D49),
-              Color(0xFF004D40),
-            ],
+            colors: [Color(0xFF041C32), Color(0xFF082D49), Color(0xFF004D40)],
           ),
         ),
         child: _loadingProgress
@@ -1815,8 +1815,9 @@ class _WordSharkGameState extends State< WordSharkGame > {
                                           color: Colors.cyanAccent.withOpacity(
                                             0.16,
                                           ),
-                                          borderRadius:
-                                              BorderRadius.circular(16),
+                                          borderRadius: BorderRadius.circular(
+                                            16,
+                                          ),
                                           border: Border.all(
                                             color: Colors.cyanAccent
                                                 .withOpacity(0.4),
@@ -1860,8 +1861,9 @@ class _WordSharkGameState extends State< WordSharkGame > {
                                   Container(
                                     padding: const EdgeInsets.all(12),
                                     decoration: BoxDecoration(
-                                      color: const Color(0xFF031C32)
-                                          .withOpacity(0.65),
+                                      color: const Color(
+                                        0xFF031C32,
+                                      ).withOpacity(0.65),
                                       borderRadius: BorderRadius.circular(14),
                                       border: Border.all(color: Colors.white12),
                                     ),
@@ -1926,13 +1928,15 @@ class _WordSharkGameState extends State< WordSharkGame > {
                                         ),
                                       ),
                                       style: ElevatedButton.styleFrom(
-                                        backgroundColor:
-                                            const Color(0xFF00BCD4),
+                                        backgroundColor: const Color(
+                                          0xFF00BCD4,
+                                        ),
                                         foregroundColor: Colors.white,
                                         elevation: 4,
                                         shape: RoundedRectangleBorder(
-                                          borderRadius:
-                                              BorderRadius.circular(24),
+                                          borderRadius: BorderRadius.circular(
+                                            24,
+                                          ),
                                         ),
                                       ),
                                     ),
@@ -1990,8 +1994,9 @@ class _WordSharkGameState extends State< WordSharkGame > {
                                         child: Text(
                                           'Tap any unlocked level',
                                           style: TextStyle(
-                                            color:
-                                                Colors.white.withOpacity(0.65),
+                                            color: Colors.white.withOpacity(
+                                              0.65,
+                                            ),
                                             fontSize: 12,
                                           ),
                                         ),
@@ -2041,10 +2046,11 @@ class _WordSharkGameState extends State< WordSharkGame > {
                                       ),
                                       if (joinedClasses.isNotEmpty)
                                         DropdownButtonHideUnderline(
-                                          child: DropdownButton< String >(
+                                          child: DropdownButton<String>(
                                             value: _leaderboardScope,
-                                            dropdownColor:
-                                                const Color(0xFF082D49),
+                                            dropdownColor: const Color(
+                                              0xFF082D49,
+                                            ),
                                             style: const TextStyle(
                                               color: Colors.cyanAccent,
                                               fontSize: 12,
@@ -2075,9 +2081,7 @@ class _WordSharkGameState extends State< WordSharkGame > {
                                     ],
                                   ),
                                   const SizedBox(height: 10),
-                                  FutureBuilder<
-                                    List< Map< String, dynamic > >
-                                  >(
+                                  FutureBuilder<List<Map<String, dynamic>>>(
                                     future: _openingLeaderboardFuture,
                                     builder: (context, snapshot) {
                                       if (snapshot.connectionState ==
@@ -2106,99 +2110,118 @@ class _WordSharkGameState extends State< WordSharkGame > {
                                         );
                                       }
                                       return Column(
-                                        children: rows.take(5).toList().asMap().entries.map((entry) {
-                                          final idx = entry.key;
-                                          final r = entry.value;
-                                          final isMe = r['uid'] ==
-                                              AuthService.currentUser?.id;
-                                          return Container(
-                                            margin: const EdgeInsets.only(
-                                              bottom: 6,
-                                            ),
-                                            padding: const EdgeInsets.symmetric(
-                                              horizontal: 12,
-                                              vertical: 8,
-                                            ),
-                                            decoration: BoxDecoration(
-                                              color: isMe
-                                                  ? Colors.cyanAccent
-                                                      .withOpacity(0.16)
-                                                  : const Color(0xFF031C32)
-                                                      .withOpacity(0.65),
-                                              borderRadius:
-                                                  BorderRadius.circular(12),
-                                              border: Border.all(
-                                                color: isMe
-                                                    ? Colors.cyanAccent
-                                                    : Colors.white10,
-                                              ),
-                                            ),
-                                            child: Row(
-                                              children: [
-                                                CircleAvatar(
-                                                  radius: 14,
-                                                  backgroundColor: idx == 0
-                                                      ? Colors.amber
-                                                      : idx == 1
-                                                          ? Colors.blueGrey
-                                                              .shade300
-                                                          : idx == 2
-                                                              ? Colors.brown
-                                                                  .shade300
-                                                              : const Color(
-                                                                  0xFF0277BD,
-                                                                ),
-                                                  child: Text(
-                                                    '#${idx + 1}',
-                                                    style: const TextStyle(
-                                                      color: Colors.white,
-                                                      fontSize: 11,
-                                                      fontWeight:
-                                                          FontWeight.bold,
+                                        children: rows
+                                            .take(5)
+                                            .toList()
+                                            .asMap()
+                                            .entries
+                                            .map((entry) {
+                                              final idx = entry.key;
+                                              final r = entry.value;
+                                              final isMe =
+                                                  r['uid'] ==
+                                                  AuthService.currentUser?.id;
+                                              return Container(
+                                                margin: const EdgeInsets.only(
+                                                  bottom: 6,
+                                                ),
+                                                padding:
+                                                    const EdgeInsets.symmetric(
+                                                      horizontal: 12,
+                                                      vertical: 8,
                                                     ),
+                                                decoration: BoxDecoration(
+                                                  color: isMe
+                                                      ? Colors.cyanAccent
+                                                            .withOpacity(0.16)
+                                                      : const Color(
+                                                          0xFF031C32,
+                                                        ).withOpacity(0.65),
+                                                  borderRadius:
+                                                      BorderRadius.circular(12),
+                                                  border: Border.all(
+                                                    color: isMe
+                                                        ? Colors.cyanAccent
+                                                        : Colors.white10,
                                                   ),
                                                 ),
-                                                const SizedBox(width: 10),
-                                                Expanded(
-                                                  child: Column(
-                                                    crossAxisAlignment:
-                                                        CrossAxisAlignment
-                                                            .start,
-                                                    children: [
-                                                      Text(
-                                                        '${r['name']}${isMe ? " (You)" : ""}',
-                                                        maxLines: 1,
-                                                        overflow: TextOverflow
-                                                            .ellipsis,
+                                                child: Row(
+                                                  children: [
+                                                    CircleAvatar(
+                                                      radius: 14,
+                                                      backgroundColor: idx == 0
+                                                          ? Colors.amber
+                                                          : idx == 1
+                                                          ? Colors
+                                                                .blueGrey
+                                                                .shade300
+                                                          : idx == 2
+                                                          ? Colors
+                                                                .brown
+                                                                .shade300
+                                                          : const Color(
+                                                              0xFF0277BD,
+                                                            ),
+                                                      child: Text(
+                                                        '#${idx + 1}',
                                                         style: const TextStyle(
                                                           color: Colors.white,
+                                                          fontSize: 11,
                                                           fontWeight:
                                                               FontWeight.bold,
-                                                          fontSize: 13,
                                                         ),
                                                       ),
-                                                      Text(
-                                                        'Level ${r['unlockedLevel']} • ${r['completedCount']} Completed',
-                                                        style: const TextStyle(
-                                                          color: Colors.white60,
-                                                          fontSize: 11,
-                                                        ),
+                                                    ),
+                                                    const SizedBox(width: 10),
+                                                    Expanded(
+                                                      child: Column(
+                                                        crossAxisAlignment:
+                                                            CrossAxisAlignment
+                                                                .start,
+                                                        children: [
+                                                          Text(
+                                                            '${r['name']}${isMe ? " (You)" : ""}',
+                                                            maxLines: 1,
+                                                            overflow:
+                                                                TextOverflow
+                                                                    .ellipsis,
+                                                            style:
+                                                                const TextStyle(
+                                                                  color: Colors
+                                                                      .white,
+                                                                  fontWeight:
+                                                                      FontWeight
+                                                                          .bold,
+                                                                  fontSize: 13,
+                                                                ),
+                                                          ),
+                                                          Text(
+                                                            'Level ${r['unlockedLevel']} • ${r['completedCount']} Completed',
+                                                            style:
+                                                                const TextStyle(
+                                                                  color: Colors
+                                                                      .white60,
+                                                                  fontSize: 11,
+                                                                ),
+                                                          ),
+                                                        ],
                                                       ),
-                                                    ],
-                                                  ),
+                                                    ),
+                                                    Text(
+                                                      '${r['highestScore']} pts',
+                                                      style: const TextStyle(
+                                                        color:
+                                                            Colors.amberAccent,
+                                                        fontWeight:
+                                                            FontWeight.bold,
+                                                        fontSize: 13.5,
+                                                      ),
+                                                    ),
+                                                  ],
                                                 ),
-                                                Text(
-                                                  '${r['highestScore']} pts',
-                                                  style: const TextStyle(
-                                                    color: Colors.amberAccent,
-                                                    fontWeight: FontWeight.bold,
-                                                    fontSize: 13.5,
-                                                  ),
-                                                ),
-                                              ],
-                                            ),
-                                          );
-                                        }).toList(),
+                                              );
+                                            })
+                                            .toList(),
                                       );
                                     },
                                   ),
@@ -2302,7 +2325,7 @@ class _WordSharkGameState extends State< WordSharkGame > {
   }
 
   Widget _buildCandyCrushSharkMap() {
-    const alignments = < double >[-0.65, -0.22, 0.22, 0.65, 0.22, -0.22];
+    const alignments = <double>[-0.65, -0.22, 0.22, 0.65, 0.22, -0.22];
 
     return ListView.builder(
       itemCount: _maxLevel,
@@ -2320,18 +2343,19 @@ class _WordSharkGameState extends State< WordSharkGame > {
         if (lvl == 1) zoneBanner = '🐠 Zone 1: Nursery Lagoon (Levels 1–15)';
         if (lvl == 16) zoneBanner = '🪸 Zone 2: Reef Drop-Off (Levels 16–40)';
         if (lvl == 41) zoneBanner = '🌊 Zone 3: Open Pelagic (Levels 41–70)';
-        if (lvl == 71) zoneBanner = '🦈 Zone 4: Great Shark Trench (Levels 71–100)';
+        if (lvl == 71)
+          zoneBanner = '🦈 Zone 4: Great Shark Trench (Levels 71–100)';
 
         final Color nodeBg = isCurrent
             ? const Color(0xFFFFB300)
             : isCompleted
-                ? const Color(0xFF00897B)
-                : const Color(0xFF031C32);
+            ? const Color(0xFF00897B)
+            : const Color(0xFF031C32);
         final Color borderColor = isCurrent
             ? Colors.white
             : isCompleted
-                ? Colors.tealAccent
-                : Colors.white24;
+            ? Colors.tealAccent
+            : Colors.white24;
 
         return Column(
           children: [
@@ -2392,8 +2416,8 @@ class _WordSharkGameState extends State< WordSharkGame > {
                         !isUnlocked
                             ? Icons.lock_rounded
                             : isCompleted
-                                ? Icons.check_circle_rounded
-                                : Icons.play_circle_fill_rounded,
+                            ? Icons.check_circle_rounded
+                            : Icons.play_circle_fill_rounded,
                         size: 18,
                         color: !isUnlocked ? Colors.white38 : Colors.white,
                       ),
@@ -2416,7 +2440,7 @@ class _WordSharkGameState extends State< WordSharkGame > {
                             Row(
                               mainAxisSize: MainAxisSize.min,
                               children: [
-                                ...List< Widget >.generate(3, (sIdx) {
+                                ...List<Widget>.generate(3, (sIdx) {
                                   return Icon(
                                     sIdx < stars
                                         ? Icons.star_rounded
@@ -2456,11 +2480,11 @@ class _WordSharkConfettiOverlay extends StatefulWidget {
   const _WordSharkConfettiOverlay();
 
   @override
-  State< _WordSharkConfettiOverlay > createState() =>
+  State<_WordSharkConfettiOverlay> createState() =>
       _WordSharkConfettiOverlayState();
 }
 
-class _WordSharkConfettiOverlayState extends State< _WordSharkConfettiOverlay >
+class _WordSharkConfettiOverlayState extends State<_WordSharkConfettiOverlay>
     with SingleTickerProviderStateMixin {
   late final AnimationController _controller;
 
@@ -2497,7 +2521,7 @@ class _SharkConfettiPainter extends CustomPainter {
 
   const _SharkConfettiPainter({required this.progress});
 
-  static const List< Color > _colors = [
+  static const List<Color> _colors = [
     Colors.amberAccent,
     Colors.cyanAccent,
     Colors.greenAccent,

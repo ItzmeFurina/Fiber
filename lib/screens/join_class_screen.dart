@@ -11,15 +11,235 @@ class JoinClassScreen extends StatefulWidget {
   const JoinClassScreen({super.key});
 
   @override
-  State< JoinClassScreen > createState() => _JoinClassScreenState();
+  State<JoinClassScreen> createState() => _JoinClassScreenState();
 }
 
-class _JoinClassScreenState extends State< JoinClassScreen > {
+class _ClassContentPage extends StatelessWidget {
+  const _ClassContentPage({
+    required this.classRoom,
+    required this.category,
+    required this.title,
+  });
+
+  final ClassRoom classRoom;
+  final String category;
+  final String title;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final targetCode = classRoom.id.trim().toUpperCase();
+    final items = DataService.modules.where((module) {
+      return module.isPublished &&
+          module.category == category &&
+          (module.classCode ?? '').trim().toUpperCase() == targetCode;
+    }).toList();
+
+    final color = category == 'module'
+        ? Colors.teal.shade700
+        : category == 'mock_exam'
+        ? Colors.deepPurple
+        : const Color(0xFF0277BD);
+    final icon = category == 'module'
+        ? Icons.folder_open_rounded
+        : category == 'mock_exam'
+        ? Icons.assignment_outlined
+        : Icons.quiz_outlined;
+    final actionLabel = category == 'module'
+        ? 'Open Module'
+        : category == 'mock_exam'
+        ? 'Start Exam'
+        : 'Take Quiz';
+
+    return Scaffold(
+      backgroundColor: theme.scaffoldBackgroundColor,
+      appBar: AppBar(
+        title: Text(title, style: const TextStyle(fontWeight: FontWeight.bold)),
+        elevation: 0,
+      ),
+      body: Container(
+        decoration: BoxDecoration(color: Colors.lightBlue.shade50),
+        child: ListView(
+          padding: const EdgeInsets.all(16),
+          children: [
+            Container(
+              padding: const EdgeInsets.all(18),
+              decoration: BoxDecoration(
+                gradient: const LinearGradient(
+                  colors: [Color(0xFF0B3C5D), Color(0xFF0288D1)],
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                ),
+                borderRadius: BorderRadius.circular(18),
+              ),
+              child: Row(
+                children: [
+                  CircleAvatar(
+                    radius: 22,
+                    backgroundColor: Colors.white.withOpacity(0.14),
+                    child: Icon(icon, color: Colors.cyanAccent),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          title,
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontSize: 17,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                        const SizedBox(height: 2),
+                        Text(
+                          '${classRoom.name} • ${items.length} available',
+                          style: const TextStyle(
+                            color: Colors.white70,
+                            fontSize: 12,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 14),
+            if (items.isEmpty)
+              Container(
+                padding: const EdgeInsets.all(24),
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(18),
+                  border: Border.all(color: Colors.lightBlue.shade100),
+                ),
+                child: const Column(
+                  children: [
+                    Icon(
+                      Icons.inbox_outlined,
+                      size: 44,
+                      color: Color(0xFF0277BD),
+                    ),
+                    SizedBox(height: 10),
+                    Text(
+                      'Nothing available yet',
+                      style: TextStyle(
+                        fontWeight: FontWeight.bold,
+                        color: Color(0xFF0B3C5D),
+                      ),
+                    ),
+                  ],
+                ),
+              )
+            else
+              ...items.map((module) {
+                final fileName = DataService.cleanOriginalFileName(module);
+                final fileType = DataService.formatTypeLabel(module);
+                final fileSize = DataService.formatBytesLabel(module.fileSize);
+                return Container(
+                  margin: const EdgeInsets.only(bottom: 12),
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(18),
+                    border: Border.all(color: color.withOpacity(0.20)),
+                  ),
+                  child: Padding(
+                    padding: const EdgeInsets.all(14),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        Row(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            CircleAvatar(
+                              radius: 20,
+                              backgroundColor: color.withOpacity(0.12),
+                              child: Icon(icon, color: color, size: 20),
+                            ),
+                            const SizedBox(width: 10),
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(
+                                    fileName,
+                                    maxLines: 2,
+                                    overflow: TextOverflow.ellipsis,
+                                    style: const TextStyle(
+                                      color: Color(0xFF0B3C5D),
+                                      fontWeight: FontWeight.bold,
+                                      fontSize: 14,
+                                    ),
+                                  ),
+                                  const SizedBox(height: 3),
+                                  Text(
+                                    '$fileType • $fileSize',
+                                    style: TextStyle(
+                                      color: color,
+                                      fontSize: 11.5,
+                                      fontWeight: FontWeight.w600,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 12),
+                        Align(
+                          alignment: Alignment.centerRight,
+                          child: ElevatedButton.icon(
+                            onPressed: () {
+                              Widget page;
+                              if (category == 'module') {
+                                page = ModuleViewer(module: module);
+                              } else if (category == 'mock_exam') {
+                                page = MockExam(initialModule: module);
+                              } else {
+                                page = MiniQuiz(initialModule: module);
+                              }
+                              Navigator.push(
+                                context,
+                                MaterialPageRoute(builder: (_) => page),
+                              );
+                            },
+                            icon: Icon(
+                              category == 'module'
+                                  ? Icons.open_in_new_rounded
+                                  : Icons.play_arrow_rounded,
+                              size: 17,
+                            ),
+                            label: Text(actionLabel),
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: color,
+                              foregroundColor: Colors.white,
+                              elevation: 0,
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(20),
+                              ),
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                );
+              }),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _JoinClassScreenState extends State<JoinClassScreen> {
   bool _isRefreshing = false;
   final TextEditingController _inlineCodeCtrl = TextEditingController();
   String? _inlineJoinError;
 
-  List< String > get _joinedClasses => DataService.joinedClassCodes;
+  List<String> get _joinedClasses => DataService.joinedClassCodes;
 
   @override
   void initState() {
@@ -55,14 +275,12 @@ class _JoinClassScreenState extends State< JoinClassScreen > {
         ),
       );
     } else {
-      setState(
-        () => _inlineJoinError = 'Class not found. Check the code.',
-      );
+      setState(() => _inlineJoinError = 'Class not found. Check the code.');
     }
   }
 
-  Future< void > _confirmUnenroll(ClassRoom classRoom) async {
-    final confirmed = await showDialog< bool >(
+  Future<void> _confirmUnenroll(ClassRoom classRoom) async {
+    final confirmed = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
@@ -97,9 +315,7 @@ class _JoinClassScreenState extends State< JoinClassScreen > {
       if (!mounted) return;
       setState(() {});
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Unenrolled from ${classRoom.name}.'),
-        ),
+        SnackBar(content: Text('Unenrolled from ${classRoom.name}.')),
       );
     }
   }
@@ -108,7 +324,7 @@ class _JoinClassScreenState extends State< JoinClassScreen > {
     if (mounted) setState(() {});
   }
 
-  Future< void > _refreshClassesAndModules() async {
+  Future<void> _refreshClassesAndModules() async {
     if (_isRefreshing) return;
     setState(() => _isRefreshing = true);
     await DataService.loadModules();
@@ -201,7 +417,7 @@ class _JoinClassScreenState extends State< JoinClassScreen > {
     );
   }
 
-  static const List< List< Color > > _bannerGradients = [
+  static const List<List<Color>> _bannerGradients = [
     [Color(0xFF0B3C5D), Color(0xFF0288D1)],
     [Color(0xFF004D40), Color(0xFF00897B)],
     [Color(0xFF1A237E), Color(0xFF3949AB)],
@@ -524,10 +740,10 @@ class ClassPortalScreen extends StatefulWidget {
   const ClassPortalScreen({super.key, required this.classRoom});
 
   @override
-  State< ClassPortalScreen > createState() => _ClassPortalScreenState();
+  State<ClassPortalScreen> createState() => _ClassPortalScreenState();
 }
 
-class _ClassPortalScreenState extends State< ClassPortalScreen > {
+class _ClassPortalScreenState extends State<ClassPortalScreen> {
   bool _isRefreshing = false;
 
   ClassRoom get classRoom => widget.classRoom;
@@ -548,7 +764,7 @@ class _ClassPortalScreenState extends State< ClassPortalScreen > {
     if (mounted) setState(() {});
   }
 
-  Future< void > _refreshClassPortal() async {
+  Future<void> _refreshClassPortal() async {
     if (_isRefreshing) return;
     setState(() => _isRefreshing = true);
     await DataService.loadModules();
@@ -572,12 +788,13 @@ class _ClassPortalScreenState extends State< ClassPortalScreen > {
           (m.classCode ?? '').trim().toUpperCase() == targetClassCode;
     }).toList();
 
-    final miniQuizzes =
-        allModules.where((m) => m.category == 'quiz').toList();
-    final mockExams =
-        allModules.where((m) => m.category == 'mock_exam').toList();
-    final moduleFolders =
-        allModules.where((m) => m.category == 'module').toList();
+    final miniQuizzes = allModules.where((m) => m.category == 'quiz').toList();
+    final mockExams = allModules
+        .where((m) => m.category == 'mock_exam')
+        .toList();
+    final moduleFolders = allModules
+        .where((m) => m.category == 'module')
+        .toList();
 
     return Scaffold(
       backgroundColor: theme.scaffoldBackgroundColor,
@@ -724,43 +941,6 @@ class _ClassPortalScreenState extends State< ClassPortalScreen > {
           ),
           const SizedBox(height: 20),
 
-          // ── Section 1: Mini Quizzes ──
-          _sectionCard(
-            title: 'Mini Quizzes',
-            subtitle: 'Short topic drills with instant answer feedback',
-            icon: Icons.quiz_outlined,
-            color: const Color(0xFF0277BD),
-            emptyText: 'No mini quizzes available in this class yet.',
-            items: miniQuizzes,
-            onTapItem: (m) {
-              Navigator.push(
-                context,
-                MaterialPageRoute(builder: (_) => MiniQuiz(initialModule: m)),
-              );
-            },
-            actionLabel: 'Take Quiz',
-          ),
-          const SizedBox(height: 16),
-
-          // ── Section 2: Mock Exams ──
-          _sectionCard(
-            title: 'Mock Exams',
-            subtitle: 'Full timed Fisheries Board Exam simulations',
-            icon: Icons.assignment_outlined,
-            color: Colors.deepPurple,
-            emptyText: 'No mock exams available in this class yet.',
-            items: mockExams,
-            onTapItem: (m) {
-              Navigator.push(
-                context,
-                MaterialPageRoute(builder: (_) => MockExam(initialModule: m)),
-              );
-            },
-            actionLabel: 'Start Exam',
-          ),
-          const SizedBox(height: 16),
-
-          // ── Section 3: Module Folders ──
           _sectionCard(
             title: 'Module Folders',
             subtitle: 'Study handouts, reviewers, and lecture slides',
@@ -768,13 +948,54 @@ class _ClassPortalScreenState extends State< ClassPortalScreen > {
             color: Colors.teal.shade700,
             emptyText: 'No learning modules uploaded to this class yet.',
             items: moduleFolders,
-            onTapItem: (m) {
-              Navigator.push(
-                context,
-                MaterialPageRoute(builder: (_) => ModuleViewer(module: m)),
-              );
-            },
-            actionLabel: 'Open Module',
+            onOpen: () => Navigator.push(
+              context,
+              MaterialPageRoute(
+                builder: (_) => _ClassContentPage(
+                  classRoom: classRoom,
+                  category: 'module',
+                  title: 'Module Folders',
+                ),
+              ),
+            ),
+          ),
+          const SizedBox(height: 16),
+          _sectionCard(
+            title: 'Mock Exams',
+            subtitle: 'Full timed Fisheries Board Exam simulations',
+            icon: Icons.assignment_outlined,
+            color: Colors.deepPurple,
+            emptyText: 'No mock exams available in this class yet.',
+            items: mockExams,
+            onOpen: () => Navigator.push(
+              context,
+              MaterialPageRoute(
+                builder: (_) => _ClassContentPage(
+                  classRoom: classRoom,
+                  category: 'mock_exam',
+                  title: 'Mock Exams',
+                ),
+              ),
+            ),
+          ),
+          const SizedBox(height: 16),
+          _sectionCard(
+            title: 'Mini Quizzes',
+            subtitle: 'Short topic drills with instant answer feedback',
+            icon: Icons.quiz_outlined,
+            color: const Color(0xFF0277BD),
+            emptyText: 'No mini quizzes available in this class yet.',
+            items: miniQuizzes,
+            onOpen: () => Navigator.push(
+              context,
+              MaterialPageRoute(
+                builder: (_) => _ClassContentPage(
+                  classRoom: classRoom,
+                  category: 'quiz',
+                  title: 'Mini Quizzes',
+                ),
+              ),
+            ),
           ),
         ],
       ),
@@ -787,27 +1008,20 @@ class _ClassPortalScreenState extends State< ClassPortalScreen > {
     required IconData icon,
     required Color color,
     required String emptyText,
-    required List< Module > items,
-    required void Function(Module) onTapItem,
-    required String actionLabel,
+    required List<Module> items,
+    required VoidCallback onOpen,
   }) {
-    return Container(
-      padding: const EdgeInsets.all(18),
-      decoration: BoxDecoration(
-        color: Colors.white,
+    return Material(
+      color: Colors.white,
+      borderRadius: BorderRadius.circular(18),
+      elevation: 1,
+      shadowColor: Colors.black.withOpacity(0.08),
+      child: InkWell(
         borderRadius: BorderRadius.circular(18),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.05),
-            blurRadius: 10,
-            offset: const Offset(0, 4),
-          ),
-        ],
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
+        onTap: onOpen,
+        child: Padding(
+          padding: const EdgeInsets.all(18),
+          child: Row(
             children: [
               CircleAvatar(
                 radius: 20,
@@ -855,121 +1069,11 @@ class _ClassPortalScreenState extends State< ClassPortalScreen > {
                   ),
                 ),
               ),
+              const SizedBox(width: 4),
+              Icon(Icons.chevron_right_rounded, color: color),
             ],
           ),
-          const SizedBox(height: 14),
-          if (items.isEmpty)
-            Text(
-              emptyText,
-              style: const TextStyle(color: Colors.black54, fontSize: 13),
-            )
-          else
-            ...items.map((m) {
-              final cleanFileName = DataService.cleanOriginalFileName(m);
-              final fileTypeLabel = DataService.formatTypeLabel(m);
-              final fileSizeLabel = DataService.formatBytesLabel(m.fileSize);
-              return Container(
-                margin: const EdgeInsets.only(bottom: 10),
-                padding: const EdgeInsets.all(12),
-                decoration: BoxDecoration(
-                  color: color.withOpacity(0.04),
-                  borderRadius: BorderRadius.circular(14),
-                  border: Border.all(color: color.withOpacity(0.18)),
-                ),
-                child: InkWell(
-                  borderRadius: BorderRadius.circular(12),
-                  onTap: () => onTapItem(m),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.stretch,
-                    children: [
-                      Row(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Padding(
-                            padding: const EdgeInsets.only(top: 2),
-                            child: Icon(icon, color: color, size: 22),
-                          ),
-                          const SizedBox(width: 10),
-                          Expanded(
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Text(
-                                  'File Name: $cleanFileName',
-                                  softWrap: true,
-                                  maxLines: 3,
-                                  overflow: TextOverflow.ellipsis,
-                                  style: const TextStyle(
-                                    fontWeight: FontWeight.bold,
-                                    fontSize: 13.5,
-                                    color: Color(0xFF0B3C5D),
-                                    height: 1.3,
-                                  ),
-                                ),
-                                const SizedBox(height: 3),
-                                Text(
-                                  'File Type: $fileTypeLabel',
-                                  softWrap: true,
-                                  style: TextStyle(
-                                    fontSize: 11.5,
-                                    fontWeight: FontWeight.w600,
-                                    color: color,
-                                  ),
-                                ),
-                                const SizedBox(height: 2),
-                                Text(
-                                  'File Size: $fileSizeLabel',
-                                  style: const TextStyle(
-                                    fontSize: 11.5,
-                                    color: Colors.black54,
-                                  ),
-                                ),
-                                const SizedBox(height: 2),
-                                Text(
-                                  'Class: ${classRoom.name} (${classRoom.id}) • ${m.questions.length} Qs',
-                                  softWrap: true,
-                                  style: const TextStyle(
-                                    fontSize: 11.5,
-                                    color: Colors.black54,
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
-                        ],
-                      ),
-                      const SizedBox(height: 10),
-                      Align(
-                        alignment: Alignment.centerRight,
-                        child: ElevatedButton(
-                          onPressed: () => onTapItem(m),
-                          style: ElevatedButton.styleFrom(
-                            backgroundColor: color,
-                            foregroundColor: Colors.white,
-                            elevation: 0,
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 14,
-                              vertical: 8,
-                            ),
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(20),
-                            ),
-                          ),
-                          child: Text(
-                            actionLabel,
-                            style: const TextStyle(
-                              fontSize: 12,
-                              fontWeight: FontWeight.bold,
-                            ),
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              );
-            }),
-        ],
+        ),
       ),
     );
   }

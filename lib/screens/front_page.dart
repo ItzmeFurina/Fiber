@@ -17,8 +17,8 @@ class FrontPage extends StatefulWidget {
   State<FrontPage> createState() => _FrontPageState();
 }
 
-class _FrontPageState extends State< FrontPage > {
-  late Future< List< AlumniProfile > > _alumniFuture;
+class _FrontPageState extends State<FrontPage> {
+  late Future<List<AlumniProfile>> _alumniFuture;
   final PageController _alumniPageController = PageController(
     viewportFraction: 0.90,
   );
@@ -136,16 +136,19 @@ class _FrontPageState extends State< FrontPage > {
       child: Row(
         children: [
           Container(
-            padding: const EdgeInsets.all(6),
+            width: 52,
+            height: 52,
+            padding: const EdgeInsets.all(4),
+            alignment: Alignment.center,
             decoration: BoxDecoration(
               color: Colors.white.withOpacity(0.14),
               borderRadius: BorderRadius.circular(12),
             ),
             child: Image.asset(
               'lib/assets/Logo/fiber_logo.png',
-              height: 28,
-              width: 28,
-              fit: BoxFit.contain,
+              height: 44,
+              width: 44,
+              fit: BoxFit.cover,
               errorBuilder: (_, __, ___) => const Icon(
                 Icons.set_meal_rounded,
                 color: Colors.cyanAccent,
@@ -249,11 +252,12 @@ class _FrontPageState extends State< FrontPage > {
           RichText(
             textAlign: TextAlign.center,
             text: TextSpan(
-              style: GoogleFonts.playfairDisplay(
-                fontSize: 26,
-                fontWeight: FontWeight.bold,
+              style: GoogleFonts.roboto(
+                fontSize: 24,
+                fontWeight: FontWeight.w700,
                 color: Colors.white,
                 height: 1.25,
+                letterSpacing: -0.35,
               ),
               children: const [
                 TextSpan(text: 'Ace Your '),
@@ -269,11 +273,7 @@ class _FrontPageState extends State< FrontPage > {
           const Text(
             'Interactive FBLE review modules, topic drills, mock exams, and vocabulary games built for CvSU-Naic.',
             textAlign: TextAlign.center,
-            style: TextStyle(
-              fontSize: 13,
-              color: Colors.white70,
-              height: 1.45,
-            ),
+            style: TextStyle(fontSize: 13, color: Colors.white70, height: 1.45),
           ),
           const SizedBox(height: 18),
           SizedBox(
@@ -415,7 +415,7 @@ class _FrontPageState extends State< FrontPage > {
             icon: Icons.menu_book_rounded,
             title: 'Class Module Library',
             subtitle:
-                'Study PDFs, PowerPoint slides, documents, images, and lecture videos organized by class.',
+                'Study PDFs, images, and lecture videos organized by class.',
             color: Colors.tealAccent,
           ),
           const SizedBox(height: 12),
@@ -570,7 +570,7 @@ class _FrontPageState extends State< FrontPage > {
         borderRadius: BorderRadius.circular(24),
         border: Border.all(color: Colors.white.withOpacity(0.16)),
       ),
-      child: FutureBuilder< List< AlumniProfile > >(
+      child: FutureBuilder<List<AlumniProfile>>(
         future: _alumniFuture,
         builder: (context, snapshot) {
           if (snapshot.connectionState != ConnectionState.done) {
@@ -581,7 +581,7 @@ class _FrontPageState extends State< FrontPage > {
           }
 
           final profiles =
-              (snapshot.data ?? const < AlumniProfile >[])
+              (snapshot.data ?? const <AlumniProfile>[])
                   .where((a) => a.isVisible)
                   .toList()
                 ..sort((a, b) => a.displayOrder.compareTo(b.displayOrder));
@@ -633,13 +633,12 @@ class _FrontPageState extends State< FrontPage > {
                           ),
                           onPressed: _currentAlumniPage > 0
                               ? () => _alumniPageController.previousPage(
-                                    duration:
-                                        const Duration(milliseconds: 300),
-                                    curve: Curves.easeOutCubic,
-                                  )
+                                  duration: const Duration(milliseconds: 300),
+                                  curve: Curves.easeOutCubic,
+                                )
                               : null,
                         ),
-                        ...List< Widget >.generate(profiles.length, (i) {
+                        ...List<Widget>.generate(profiles.length, (i) {
                           final active = i == _currentAlumniPage;
                           return AnimatedContainer(
                             duration: const Duration(milliseconds: 220),
@@ -662,10 +661,9 @@ class _FrontPageState extends State< FrontPage > {
                           ),
                           onPressed: _currentAlumniPage < profiles.length - 1
                               ? () => _alumniPageController.nextPage(
-                                    duration:
-                                        const Duration(milliseconds: 300),
-                                    curve: Curves.easeOutCubic,
-                                  )
+                                  duration: const Duration(milliseconds: 300),
+                                  curve: Curves.easeOutCubic,
+                                )
                               : null,
                         ),
                       ],
@@ -685,10 +683,11 @@ class _FrontPageState extends State< FrontPage > {
         Text(
           'Our Successful BFAS Alumni',
           textAlign: TextAlign.center,
-          style: GoogleFonts.playfairDisplay(
-            fontSize: 26,
-            fontWeight: FontWeight.bold,
+          style: GoogleFonts.roboto(
+            fontSize: 24,
+            fontWeight: FontWeight.w700,
             color: Colors.lightBlueAccent,
+            letterSpacing: -0.35,
           ),
         ),
         const SizedBox(height: 8),

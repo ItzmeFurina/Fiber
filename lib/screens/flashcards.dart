@@ -14,13 +14,13 @@ class FlashcardsScreen extends StatefulWidget {
   const FlashcardsScreen({super.key});
 
   @override
-  State< FlashcardsScreen > createState() => _FlashcardsScreenState();
+  State<FlashcardsScreen> createState() => _FlashcardsScreenState();
 }
 
-class _FlashcardsScreenState extends State< FlashcardsScreen > {
-  static final List< dynamic > _flashcards = [];
-  static final List< dynamic > _recentlyDeleted = [];
-  static final List< String > _subjects = [
+class _FlashcardsScreenState extends State<FlashcardsScreen> {
+  static final List<dynamic> _flashcards = [];
+  static final List<dynamic> _recentlyDeleted = [];
+  static final List<String> _subjects = [
     'General',
     'Aquaculture',
     'Capture Fisheries',
@@ -28,7 +28,7 @@ class _FlashcardsScreenState extends State< FlashcardsScreen > {
     'Aquatic Resources & Ecology',
   ];
 
-  final Set< String > _reviewedCardIds = {};
+  final Set<String> _reviewedCardIds = {};
   final TextEditingController _searchController = TextEditingController();
 
   String _selectedSubject = 'All';
@@ -36,7 +36,7 @@ class _FlashcardsScreenState extends State< FlashcardsScreen > {
   bool _loadingCloud = true;
   int _correct = 0;
   int _wrong = 0;
-  Map< String, dynamic >? _lastDeletedCard;
+  Map<String, dynamic>? _lastDeletedCard;
 
   ScaffoldMessengerState? _scaffoldMessenger;
 
@@ -59,7 +59,7 @@ class _FlashcardsScreenState extends State< FlashcardsScreen > {
     super.dispose();
   }
 
-  Future< void > _loadFlashcardsFromFirestore() async {
+  Future<void> _loadFlashcardsFromFirestore() async {
     var user = AuthService.currentUser;
     if (user == null) {
       user = await AuthService.restoreSession();
@@ -70,8 +70,8 @@ class _FlashcardsScreenState extends State< FlashcardsScreen > {
       return;
     }
 
-    final loadedActive = < Map< String, dynamic > >[];
-    final loadedDeleted = < Map< String, dynamic > >[];
+    final loadedActive = <Map<String, dynamic>>[];
+    final loadedDeleted = <Map<String, dynamic>>[];
 
     // 1. First check parent user document for persistent backup list (fastest & bypasses Android Pigeon limits)
     try {
@@ -81,17 +81,17 @@ class _FlashcardsScreenState extends State< FlashcardsScreen > {
           .get();
       final userData = userDoc.data();
       final backupList =
-          (userData?['savedFlashcardsList'] as List< dynamic >?) ?? [];
+          (userData?['savedFlashcardsList'] as List<dynamic>?) ?? [];
       for (final item in backupList) {
         if (item is Map) {
-          loadedActive.add(Map< String, dynamic >.from(item));
+          loadedActive.add(Map<String, dynamic>.from(item));
         }
       }
       final backupDeleted =
-          (userData?['deletedFlashcardsList'] as List< dynamic >?) ?? [];
+          (userData?['deletedFlashcardsList'] as List<dynamic>?) ?? [];
       for (final item in backupDeleted) {
         if (item is Map) {
-          loadedDeleted.add(Map< String, dynamic >.from(item));
+          loadedDeleted.add(Map<String, dynamic>.from(item));
         }
       }
     } catch (e) {
@@ -138,7 +138,7 @@ class _FlashcardsScreenState extends State< FlashcardsScreen > {
       ..addAll(loadedDeleted);
 
     for (final raw in _flashcards) {
-      final card = Map< String, dynamic >.from(raw as Map);
+      final card = Map<String, dynamic>.from(raw as Map);
       _addSubjectIfNeeded(_cardSubject(card));
     }
 
@@ -147,7 +147,7 @@ class _FlashcardsScreenState extends State< FlashcardsScreen > {
     }
   }
 
-  Future< void > _saveCardToFirestore(Map< String, dynamic > card) async {
+  Future<void> _saveCardToFirestore(Map<String, dynamic> card) async {
     final uid = AuthService.currentUser?.id;
     final id = (card['id'] ?? '').toString();
     if (uid == null || uid.isEmpty || id.isEmpty) return;
@@ -156,9 +156,9 @@ class _FlashcardsScreenState extends State< FlashcardsScreen > {
       await userRef.collection('flashcards').doc(id).set(card);
       // Dual-persist to parent doc so cards never disappear on APK restart
       final allCards = _flashcards
-          .map((c) => Map< String, dynamic >.from(c as Map))
+          .map((c) => Map<String, dynamic>.from(c as Map))
           .toList();
-      await userRef.set(< String, dynamic >{
+      await userRef.set(<String, dynamic>{
         'savedFlashcardsList': allCards,
       }, SetOptions(merge: true));
     } catch (e) {
@@ -166,7 +166,7 @@ class _FlashcardsScreenState extends State< FlashcardsScreen > {
     }
   }
 
-  Future< void > _moveCardToDeletedFirestore(Map< String, dynamic > card) async {
+  Future<void> _moveCardToDeletedFirestore(Map<String, dynamic> card) async {
     final uid = AuthService.currentUser?.id;
     final id = (card['id'] ?? '').toString();
     if (uid == null || uid.isEmpty || id.isEmpty) return;
@@ -178,12 +178,12 @@ class _FlashcardsScreenState extends State< FlashcardsScreen > {
         'deletedAt': DateTime.now().toIso8601String(),
       });
       final allCards = _flashcards
-          .map((c) => Map< String, dynamic >.from(c as Map))
+          .map((c) => Map<String, dynamic>.from(c as Map))
           .toList();
       final allDeleted = _recentlyDeleted
-          .map((c) => Map< String, dynamic >.from(c as Map))
+          .map((c) => Map<String, dynamic>.from(c as Map))
           .toList();
-      await userRef.set(< String, dynamic >{
+      await userRef.set(<String, dynamic>{
         'savedFlashcardsList': allCards,
         'deletedFlashcardsList': allDeleted,
       }, SetOptions(merge: true));
@@ -192,16 +192,16 @@ class _FlashcardsScreenState extends State< FlashcardsScreen > {
     }
   }
 
-  String _cardSubject(Map< String, dynamic > card) {
+  String _cardSubject(Map<String, dynamic> card) {
     final subject = (card['subject'] ?? 'General').toString().trim();
     return subject.isEmpty ? 'General' : subject;
   }
 
-  List< dynamic > get _filteredFlashcards {
+  List<dynamic> get _filteredFlashcards {
     final query = _searchController.text.trim().toLowerCase();
 
     return _flashcards
-        .map((raw) => Map< String, dynamic >.from(raw as Map))
+        .map((raw) => Map<String, dynamic>.from(raw as Map))
         .where((card) {
           final subject = _cardSubject(card).toLowerCase();
           final front = (card['front'] ?? '').toString().toLowerCase();
@@ -222,7 +222,7 @@ class _FlashcardsScreenState extends State< FlashcardsScreen > {
         .toList();
   }
 
-  Map< String, dynamic > _buildFlashcard({
+  Map<String, dynamic> _buildFlashcard({
     required String front,
     required String back,
     String subject = 'General',
@@ -253,7 +253,7 @@ class _FlashcardsScreenState extends State< FlashcardsScreen > {
 
   // ── Create Flashcard Dialog (With Subject Input, Selector & Image Upload) ────
   void _openCreateDialog() {
-    final List< dynamic > newCards = [];
+    final List<dynamic> newCards = [];
     final frontCtrl = TextEditingController();
     final backCtrl = TextEditingController();
     final subjectCtrl = TextEditingController(
@@ -284,7 +284,7 @@ class _FlashcardsScreenState extends State< FlashcardsScreen > {
                   if (newCards.isNotEmpty) {
                     setState(() {
                       for (final raw in newCards) {
-                        final card = Map< String, dynamic >.from(raw as Map);
+                        final card = Map<String, dynamic>.from(raw as Map);
                         _flashcards.insert(0, card);
                         _addSubjectIfNeeded(_cardSubject(card));
                         unawaited(_saveCardToFirestore(card));
@@ -335,7 +335,7 @@ class _FlashcardsScreenState extends State< FlashcardsScreen > {
                     ),
                     filled: true,
                     fillColor: Colors.grey.shade100,
-                    suffixIcon: PopupMenuButton< String >(
+                    suffixIcon: PopupMenuButton<String>(
                       icon: const Icon(Icons.arrow_drop_down),
                       tooltip: 'Choose existing subject',
                       onSelected: (value) {
@@ -345,10 +345,8 @@ class _FlashcardsScreenState extends State< FlashcardsScreen > {
                       },
                       itemBuilder: (_) => _subjects
                           .map(
-                            (s) => PopupMenuItem< String >(
-                              value: s,
-                              child: Text(s),
-                            ),
+                            (s) =>
+                                PopupMenuItem<String>(value: s, child: Text(s)),
                           )
                           .toList(),
                     ),
@@ -406,7 +404,10 @@ class _FlashcardsScreenState extends State< FlashcardsScreen > {
                     ),
                   ),
                 OutlinedButton.icon(
-                  icon: const Icon(Icons.add_photo_alternate_outlined, size: 18),
+                  icon: const Icon(
+                    Icons.add_photo_alternate_outlined,
+                    size: 18,
+                  ),
                   label: Text(
                     pickedImageDataUri != null
                         ? 'Change Flashcard Picture'
@@ -431,7 +432,9 @@ class _FlashcardsScreenState extends State< FlashcardsScreen > {
                         pickedPreviewBytes = res.files.first.bytes;
                       });
                     } catch (e) {
-                      setDialogState(() => error = 'Could not attach image: $e');
+                      setDialogState(
+                        () => error = 'Could not attach image: $e',
+                      );
                     }
                   },
                 ),
@@ -469,7 +472,7 @@ class _FlashcardsScreenState extends State< FlashcardsScreen > {
                 if (newCards.isNotEmpty) {
                   setState(() {
                     for (final raw in newCards) {
-                      final card = Map< String, dynamic >.from(raw as Map);
+                      final card = Map<String, dynamic>.from(raw as Map);
                       _flashcards.insert(0, card);
                       _addSubjectIfNeeded(_cardSubject(card));
                       unawaited(_saveCardToFirestore(card));
@@ -553,7 +556,7 @@ class _FlashcardsScreenState extends State< FlashcardsScreen > {
             onPressed: () {
               Navigator.pop(dialogContext);
               final allCards = _flashcards
-                  .map((raw) => Map< String, dynamic >.from(raw as Map))
+                  .map((raw) => Map<String, dynamic>.from(raw as Map))
                   .toList();
 
               setState(() {
@@ -586,7 +589,7 @@ class _FlashcardsScreenState extends State< FlashcardsScreen > {
     );
     if (index == -1) return;
 
-    final card = Map< String, dynamic >.from(_flashcards[index] as Map);
+    final card = Map<String, dynamic>.from(_flashcards[index] as Map);
 
     setState(() {
       _lastDeletedCard = card;
@@ -609,9 +612,7 @@ class _FlashcardsScreenState extends State< FlashcardsScreen > {
         duration: const Duration(seconds: 3),
         content: Row(
           children: [
-            const Expanded(
-              child: Text('Flashcard moved to Recently Deleted.'),
-            ),
+            const Expanded(child: Text('Flashcard moved to Recently Deleted.')),
             TextButton(
               onPressed: () {
                 messenger.hideCurrentSnackBar();
@@ -637,8 +638,8 @@ class _FlashcardsScreenState extends State< FlashcardsScreen > {
     );
     if (index == -1) return;
 
-    final deleted = Map< String, dynamic >.from(_recentlyDeleted[index] as Map);
-    final card = Map< String, dynamic >.from(deleted)..remove('deletedAt');
+    final deleted = Map<String, dynamic>.from(_recentlyDeleted[index] as Map);
+    final card = Map<String, dynamic>.from(deleted)..remove('deletedAt');
 
     final alreadyActive = _flashcards.any(
       (active) => (active as Map)['id'] == id,
@@ -668,7 +669,7 @@ class _FlashcardsScreenState extends State< FlashcardsScreen > {
     }
   }
 
-  void _confirmDelete(Map< String, dynamic > card) {
+  void _confirmDelete(Map<String, dynamic> card) {
     final id = (card['id'] ?? '').toString();
     showDialog(
       context: context,
@@ -735,7 +736,7 @@ class _FlashcardsScreenState extends State< FlashcardsScreen > {
                       child: ListView.builder(
                         itemCount: _recentlyDeleted.length,
                         itemBuilder: (_, i) {
-                          final card = Map< String, dynamic >.from(
+                          final card = Map<String, dynamic>.from(
                             _recentlyDeleted[i] as Map,
                           );
                           final id = (card['id'] ?? '').toString();
@@ -794,7 +795,7 @@ class _FlashcardsScreenState extends State< FlashcardsScreen > {
   }
 
   // ── Start Study Session ────────────────────────────────────────
-  Future< void > _startStudySession() async {
+  Future<void> _startStudySession() async {
     final activeDeck = _filteredFlashcards;
     if (activeDeck.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -806,7 +807,7 @@ class _FlashcardsScreenState extends State< FlashcardsScreen > {
       return;
     }
 
-    final List< dynamic > deck = List< dynamic >.from(activeDeck);
+    final List<dynamic> deck = List<dynamic>.from(activeDeck);
     if (_isShuffle) deck.shuffle(Random());
 
     final dynamic rawResult = await Navigator.push(
@@ -826,7 +827,7 @@ class _FlashcardsScreenState extends State< FlashcardsScreen > {
 
     if (!mounted || rawResult == null) return;
 
-    final result = Map< String, int >.from(rawResult as Map);
+    final result = Map<String, int>.from(rawResult as Map);
     final correct = result['correct'] ?? 0;
     final wrong = result['wrong'] ?? 0;
     final total = correct + wrong;
@@ -963,7 +964,7 @@ class _FlashcardsScreenState extends State< FlashcardsScreen > {
   @override
   Widget build(BuildContext context) {
     final filtered = _filteredFlashcards;
-    final availableSubjects = < String >['All', ..._subjects];
+    final availableSubjects = <String>['All', ..._subjects];
 
     return Scaffold(
       backgroundColor: Colors.transparent,
@@ -1080,6 +1081,65 @@ class _FlashcardsScreenState extends State< FlashcardsScreen > {
                     const SizedBox(height: 12),
                   ],
 
+                  if (_flashcards.isEmpty) ...[
+                    Container(
+                      padding: const EdgeInsets.all(20),
+                      decoration: BoxDecoration(
+                        gradient: const LinearGradient(
+                          colors: [Color(0xFF0B3C5D), Color(0xFF0288D1)],
+                          begin: Alignment.topLeft,
+                          end: Alignment.bottomRight,
+                        ),
+                        borderRadius: BorderRadius.circular(22),
+                        boxShadow: [
+                          BoxShadow(
+                            color: const Color(0xFF0288D1).withOpacity(0.20),
+                            blurRadius: 16,
+                            offset: const Offset(0, 6),
+                          ),
+                        ],
+                      ),
+                      child: const Row(
+                        children: [
+                          CircleAvatar(
+                            radius: 26,
+                            backgroundColor: Colors.white24,
+                            child: Icon(
+                              Icons.style_rounded,
+                              color: Colors.cyanAccent,
+                              size: 30,
+                            ),
+                          ),
+                          SizedBox(width: 14),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  'Build your study deck',
+                                  style: TextStyle(
+                                    color: Colors.white,
+                                    fontSize: 18,
+                                    fontWeight: FontWeight.bold,
+                                  ),
+                                ),
+                                SizedBox(height: 4),
+                                Text(
+                                  'Create flashcards for faster fisheries review.',
+                                  style: TextStyle(
+                                    color: Colors.white70,
+                                    fontSize: 12.5,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(height: 12),
+                  ],
+
                   // Subject Organization Filter Bar
                   if (_flashcards.isNotEmpty) ...[
                     Container(
@@ -1093,7 +1153,7 @@ class _FlashcardsScreenState extends State< FlashcardsScreen > {
                         border: Border.all(color: Colors.lightBlue.shade100),
                       ),
                       child: DropdownButtonHideUnderline(
-                        child: DropdownButton< String >(
+                        child: DropdownButton<String>(
                           value: availableSubjects.contains(_selectedSubject)
                               ? _selectedSubject
                               : 'All',
@@ -1101,7 +1161,7 @@ class _FlashcardsScreenState extends State< FlashcardsScreen > {
                           icon: const Icon(Icons.filter_list),
                           items: availableSubjects
                               .map(
-                                (s) => DropdownMenuItem< String >(
+                                (s) => DropdownMenuItem<String>(
                                   value: s,
                                   child: Text(
                                     s == 'All'
@@ -1128,10 +1188,22 @@ class _FlashcardsScreenState extends State< FlashcardsScreen > {
 
                   if (filtered.isNotEmpty) ...[
                     Container(
-                      padding: const EdgeInsets.all(14),
+                      padding: const EdgeInsets.all(16),
                       decoration: BoxDecoration(
-                        color: Colors.white,
-                        borderRadius: BorderRadius.circular(12),
+                        gradient: const LinearGradient(
+                          colors: [Color(0xFFF6FCFF), Color(0xFFEAF7FF)],
+                          begin: Alignment.topLeft,
+                          end: Alignment.bottomRight,
+                        ),
+                        borderRadius: BorderRadius.circular(18),
+                        border: Border.all(color: Colors.lightBlue.shade100),
+                        boxShadow: [
+                          BoxShadow(
+                            color: Colors.blue.withOpacity(0.06),
+                            blurRadius: 12,
+                            offset: const Offset(0, 4),
+                          ),
+                        ],
                       ),
                       child: Row(
                         mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -1200,16 +1272,40 @@ class _FlashcardsScreenState extends State< FlashcardsScreen > {
                               child: Column(
                                 mainAxisSize: MainAxisSize.min,
                                 children: [
+                                  Container(
+                                    width: 84,
+                                    height: 84,
+                                    decoration: BoxDecoration(
+                                      color: const Color(0xFFEAF7FF),
+                                      borderRadius: BorderRadius.circular(24),
+                                    ),
+                                    child: const Icon(
+                                      Icons.style_rounded,
+                                      size: 44,
+                                      color: Color(0xFF0277BD),
+                                    ),
+                                  ),
+                                  const SizedBox(height: 16),
                                   const Text(
-                                    'No flashcards yet.\nTap "Create Flashcard" to get started.',
+                                    'Your Flashcard Deck is Empty',
+                                    textAlign: TextAlign.center,
+                                    style: TextStyle(
+                                      color: Color(0xFF0B3C5D),
+                                      fontSize: 18,
+                                      fontWeight: FontWeight.bold,
+                                    ),
+                                  ),
+                                  const SizedBox(height: 6),
+                                  const Text(
+                                    'Create a flashcard, add a definition, and start reviewing at your own pace.',
                                     textAlign: TextAlign.center,
                                     style: TextStyle(
                                       color: Colors.black54,
-                                      fontSize: 15,
+                                      fontSize: 13,
                                       height: 1.5,
                                     ),
                                   ),
-                                  const SizedBox(height: 20),
+                                  const SizedBox(height: 18),
                                   ElevatedButton.icon(
                                     onPressed: _openCreateDialog,
                                     icon: const Icon(Icons.add),
@@ -1233,79 +1329,120 @@ class _FlashcardsScreenState extends State< FlashcardsScreen > {
                         : ListView.builder(
                             itemCount: filtered.length,
                             itemBuilder: (context, index) {
-                              final card = Map< String, dynamic >.from(
+                              final card = Map<String, dynamic>.from(
                                 filtered[index] as Map,
                               );
                               final subject = _cardSubject(card);
                               return Card(
                                 margin: const EdgeInsets.only(bottom: 10),
+                                elevation: 0,
+                                color: Colors.white,
                                 shape: RoundedRectangleBorder(
-                                  borderRadius: BorderRadius.circular(12),
-                                ),
-                                child: ListTile(
-                                  leading: CircleAvatar(
-                                    backgroundColor: const Color(
-                                      0xFF00BCD4,
-                                    ).withOpacity(0.2),
-                                    child: Text(
-                                      '${index + 1}',
-                                      style: const TextStyle(
-                                        color: Color(0xFF00BCD4),
-                                        fontWeight: FontWeight.bold,
-                                      ),
-                                    ),
+                                  borderRadius: BorderRadius.circular(16),
+                                  side: BorderSide(
+                                    color: Colors.lightBlue.shade100,
                                   ),
-                                  title: Row(
+                                ),
+                                child: Padding(
+                                  padding: const EdgeInsets.fromLTRB(
+                                    14,
+                                    10,
+                                    8,
+                                    14,
+                                  ),
+                                  child: Column(
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.stretch,
                                     children: [
-                                      Container(
-                                        padding: const EdgeInsets.symmetric(
-                                          horizontal: 8,
-                                          vertical: 2,
-                                        ),
-                                        margin: const EdgeInsets.only(right: 8),
-                                        decoration: BoxDecoration(
-                                          color: Colors.lightBlue.shade50,
-                                          borderRadius: BorderRadius.circular(
-                                            8,
+                                      Row(
+                                        crossAxisAlignment:
+                                            CrossAxisAlignment.start,
+                                        children: [
+                                          Container(
+                                            width: 34,
+                                            height: 34,
+                                            alignment: Alignment.center,
+                                            decoration: BoxDecoration(
+                                              color: const Color(0xFFEAF7FF),
+                                              borderRadius:
+                                                  BorderRadius.circular(10),
+                                            ),
+                                            child: Text(
+                                              '${index + 1}',
+                                              style: const TextStyle(
+                                                color: Color(0xFF0277BD),
+                                                fontWeight: FontWeight.bold,
+                                                fontSize: 13,
+                                              ),
+                                            ),
                                           ),
-                                          border: Border.all(
-                                            color: Colors.lightBlue.shade200,
+                                          const SizedBox(width: 8),
+                                          Container(
+                                            constraints: const BoxConstraints(
+                                              maxWidth: 220,
+                                            ),
+                                            padding: const EdgeInsets.symmetric(
+                                              horizontal: 9,
+                                              vertical: 7,
+                                            ),
+                                            decoration: BoxDecoration(
+                                              color: Colors.lightBlue.shade50,
+                                              borderRadius:
+                                                  BorderRadius.circular(10),
+                                              border: Border.all(
+                                                color:
+                                                    Colors.lightBlue.shade200,
+                                              ),
+                                            ),
+                                            child: Text(
+                                              subject,
+                                              maxLines: 1,
+                                              overflow: TextOverflow.ellipsis,
+                                              style: const TextStyle(
+                                                fontSize: 11.5,
+                                                fontWeight: FontWeight.bold,
+                                                color: Color(0xFF0277BD),
+                                              ),
+                                            ),
                                           ),
-                                        ),
-                                        child: Text(
-                                          subject,
-                                          style: const TextStyle(
-                                            fontSize: 11,
-                                            fontWeight: FontWeight.bold,
-                                            color: Color(0xFF0277BD),
+                                          const Spacer(),
+                                          IconButton(
+                                            tooltip: 'Delete flashcard',
+                                            constraints: const BoxConstraints(
+                                              minWidth: 36,
+                                              minHeight: 36,
+                                            ),
+                                            padding: EdgeInsets.zero,
+                                            icon: const Icon(
+                                              Icons.delete_outline_rounded,
+                                              color: Colors.red,
+                                              size: 20,
+                                            ),
+                                            onPressed: () =>
+                                                _confirmDelete(card),
                                           ),
+                                        ],
+                                      ),
+                                      const SizedBox(height: 10),
+                                      Text(
+                                        card['front']?.toString() ?? '',
+                                        style: const TextStyle(
+                                          color: Color(0xFF0B3C5D),
+                                          fontSize: 15.5,
+                                          fontWeight: FontWeight.w700,
+                                          height: 1.35,
                                         ),
                                       ),
-                                      Expanded(
-                                        child: Text(
-                                          card['front'] ?? '',
-                                          style: const TextStyle(
-                                            fontWeight: FontWeight.w600,
-                                          ),
+                                      const SizedBox(height: 9),
+                                      Text(
+                                        card['back']?.toString() ?? '',
+                                        style: const TextStyle(
+                                          color: Colors.black87,
+                                          fontSize: 13.5,
+                                          height: 1.45,
                                         ),
                                       ),
                                     ],
-                                  ),
-                                  subtitle: Padding(
-                                    padding: const EdgeInsets.only(top: 4),
-                                    child: Text(
-                                      card['back'] ?? '',
-                                      style: const TextStyle(
-                                        color: Colors.black54,
-                                      ),
-                                    ),
-                                  ),
-                                  trailing: IconButton(
-                                    icon: const Icon(
-                                      Icons.delete_outline,
-                                      color: Colors.red,
-                                    ),
-                                    onPressed: () => _confirmDelete(card),
                                   ),
                                 ),
                               );
@@ -1323,9 +1460,9 @@ class _FlashcardsScreenState extends State< FlashcardsScreen > {
 //  Study Session Screen (With 3D Flip Animation & Accuracy Tracking)
 // ══════════════════════════════════════════════════════════════════
 class _StudySession extends StatefulWidget {
-  final List< dynamic > deck;
+  final List<dynamic> deck;
   final void Function(int correct, int wrong) onFinish;
-  final ValueChanged< String > onCardReviewed;
+  final ValueChanged<String> onCardReviewed;
 
   const _StudySession({
     required this.deck,
@@ -1334,10 +1471,10 @@ class _StudySession extends StatefulWidget {
   });
 
   @override
-  State< _StudySession > createState() => _StudySessionState();
+  State<_StudySession> createState() => _StudySessionState();
 }
 
-class _StudySessionState extends State< _StudySession > {
+class _StudySessionState extends State<_StudySession> {
   int _index = 0;
   bool _showFront = true;
   int _correct = 0;
@@ -1371,9 +1508,7 @@ class _StudySessionState extends State< _StudySession > {
                 top: 12,
                 right: 12,
                 child: IconButton(
-                  style: IconButton.styleFrom(
-                    backgroundColor: Colors.white24,
-                  ),
+                  style: IconButton.styleFrom(backgroundColor: Colors.white24),
                   icon: const Icon(Icons.close_rounded, color: Colors.white),
                   onPressed: () => Navigator.pop(ctx),
                 ),
@@ -1397,9 +1532,7 @@ class _StudySessionState extends State< _StudySession > {
 
   void _record(bool isCorrect) {
     if (_answered) return;
-    final currentCard = Map< String, dynamic >.from(
-      widget.deck[_index] as Map,
-    );
+    final currentCard = Map<String, dynamic>.from(widget.deck[_index] as Map);
     final cardId = currentCard['id'];
     if (cardId != null) {
       widget.onCardReviewed(cardId.toString());
@@ -1428,7 +1561,7 @@ class _StudySessionState extends State< _StudySession > {
 
   @override
   Widget build(BuildContext context) {
-    final card = Map< String, dynamic >.from(widget.deck[_index] as Map);
+    final card = Map<String, dynamic>.from(widget.deck[_index] as Map);
     final total = widget.deck.length;
     final subject = (card['subject'] ?? 'General').toString();
     final answeredCount = _correct + _wrong;
@@ -1499,9 +1632,9 @@ class _StudySessionState extends State< _StudySession > {
             Expanded(
               child: GestureDetector(
                 onTap: _flip,
-                child: TweenAnimationBuilder< double >(
+                child: TweenAnimationBuilder<double>(
                   key: ValueKey(_index),
-                  tween: Tween< double >(begin: 0, end: _showFront ? 0 : pi),
+                  tween: Tween<double>(begin: 0, end: _showFront ? 0 : pi),
                   duration: const Duration(milliseconds: 420),
                   curve: Curves.easeInOutBack,
                   builder: (context, angle, _) {
@@ -1513,8 +1646,7 @@ class _StudySessionState extends State< _StudySession > {
                         ..rotateY(angle),
                       child: Transform(
                         alignment: Alignment.center,
-                        transform: Matrix4.identity()
-                          ..rotateY(isBack ? pi : 0),
+                        transform: Matrix4.identity()..rotateY(isBack ? pi : 0),
                         child: Container(
                           width: double.infinity,
                           decoration: BoxDecoration(

@@ -1,4 +1,4 @@
-﻿import 'dart:async';
+import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -27,20 +27,21 @@ class StudentHome extends StatefulWidget {
   State<StudentHome> createState() => _StudentHomeState();
 }
 
-class _StudentHomeState extends State< StudentHome >
-    with WidgetsBindingObserver {
-  final GlobalKey< ScaffoldState > _scaffoldKey = GlobalKey< ScaffoldState >();
+class _StudentHomeState extends State<StudentHome> with WidgetsBindingObserver {
+  final GlobalKey<ScaffoldState> _scaffoldKey = GlobalKey<ScaffoldState>();
   final TextEditingController _inlineClassCodeCtrl = TextEditingController();
+  final TextEditingController _classSearchCtrl = TextEditingController();
   final PageController _subjectCarouselController = PageController(
     viewportFraction: 0.92,
   );
   int _currentSubjectSlide = 0;
+  int _selectedDashboardIndex = 0;
   String? _joinClassError;
   bool _isRefreshing = false;
   Timer? _uiRefreshTimer;
-  late Stream< StudentPerformanceSummary > _summaryStream =
+  late Stream<StudentPerformanceSummary> _summaryStream =
       PerformanceService.watchSummary(uid: AuthService.currentUser?.id);
-  late Stream< StudentActivityCounts > _activityCountsStream =
+  late Stream<StudentActivityCounts> _activityCountsStream =
       PerformanceService.watchActivityCounts(uid: AuthService.currentUser?.id);
 
   void _showLogoutDialog(BuildContext context) {
@@ -86,7 +87,8 @@ class _StudentHomeState extends State< StudentHome >
 
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
-    final isInactiveOrBackground = state == AppLifecycleState.paused ||
+    final isInactiveOrBackground =
+        state == AppLifecycleState.paused ||
         state == AppLifecycleState.inactive ||
         state == AppLifecycleState.detached ||
         state == AppLifecycleState.hidden;
@@ -98,6 +100,7 @@ class _StudentHomeState extends State< StudentHome >
     WidgetsBinding.instance.removeObserver(this);
     _subjectCarouselController.dispose();
     _inlineClassCodeCtrl.dispose();
+    _classSearchCtrl.dispose();
     _uiRefreshTimer?.cancel();
     DataService.moduleUpdateNotifier.removeListener(_onModuleUpdated);
     super.dispose();
@@ -107,7 +110,7 @@ class _StudentHomeState extends State< StudentHome >
     if (mounted) setState(() {});
   }
 
-  Future< void > _initRealtimeStudentData() async {
+  Future<void> _initRealtimeStudentData() async {
     if (AuthService.currentUser == null) {
       await AuthService.restoreSession();
     }
@@ -137,8 +140,9 @@ class _StudentHomeState extends State< StudentHome >
       _inlineClassCodeCtrl.clear();
       setState(() {
         _joinClassError = null;
-        _summaryStream =
-            PerformanceService.watchSummary(uid: AuthService.currentUser?.id);
+        _summaryStream = PerformanceService.watchSummary(
+          uid: AuthService.currentUser?.id,
+        );
       });
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
@@ -148,13 +152,14 @@ class _StudentHomeState extends State< StudentHome >
       );
     } else {
       setState(
-        () => _joinClassError = 'Class "$code" not found. Check with your teacher.',
+        () => _joinClassError =
+            'Class "$code" not found. Check with your teacher.',
       );
     }
   }
 
-  Future< void > _confirmUnenrollClass(ClassRoom classRoom) async {
-    final confirmed = await showDialog< bool >(
+  Future<void> _confirmUnenrollClass(ClassRoom classRoom) async {
+    final confirmed = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
@@ -190,18 +195,21 @@ class _StudentHomeState extends State< StudentHome >
       );
       if (!mounted) return;
       setState(() {
-        _summaryStream =
-            PerformanceService.watchSummary(uid: AuthService.currentUser?.id);
+        _summaryStream = PerformanceService.watchSummary(
+          uid: AuthService.currentUser?.id,
+        );
       });
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text('Unenrolled from "${classRoom.name}" (${classRoom.id}).'),
+          content: Text(
+            'Unenrolled from "${classRoom.name}" (${classRoom.id}).',
+          ),
         ),
       );
     }
   }
 
-  Future< void > _refreshDashboardData() async {
+  Future<void> _refreshDashboardData() async {
     if (_isRefreshing) return;
     setState(() => _isRefreshing = true);
     final uid = AuthService.currentUser?.id;
@@ -224,12 +232,9 @@ class _StudentHomeState extends State< StudentHome >
     );
   }
 
-  Future< void > _openFromSidebar(Widget page) async {
+  Future<void> _openFromSidebar(Widget page) async {
     Navigator.pop(context);
-    await Navigator.push(
-      context,
-      MaterialPageRoute(builder: (_) => page),
-    );
+    await Navigator.push(context, MaterialPageRoute(builder: (_) => page));
     if (!mounted) return;
     setState(() {});
     _scaffoldKey.currentState?.openDrawer();
@@ -309,6 +314,439 @@ class _StudentHomeState extends State< StudentHome >
     );
   }
 
+  Widget _buildClassesPage(ThemeData theme) {
+    final joinedClasses = DataService.joinedClassCodes;
+    final searchQuery = _classSearchCtrl.text.trim().toLowerCase();
+    final filteredClassCodes = joinedClasses.where((code) {
+      if (searchQuery.isEmpty) return true;
+      final classRoom = DataService.classes.firstWhere(
+        (item) => item.id.toUpperCase() == code.toUpperCase(),
+        orElse: () => ClassRoom(id: code, name: 'Class $code'),
+      );
+      return classRoom.name.toLowerCase().contains(searchQuery) ||
+          code.toLowerCase().contains(searchQuery);
+    }).toList();
+
+    return Container(
+      decoration: BoxDecoration(color: Colors.lightBlue.shade50),
+      child: SafeArea(
+        child: ListView(
+          key: const PageStorageKey<String>('student_classes_page'),
+          padding: const EdgeInsets.all(16),
+          children: [
+            Container(
+              padding: const EdgeInsets.all(18),
+              decoration: BoxDecoration(
+                gradient: const LinearGradient(
+                  colors: [Color(0xFF0B3C5D), Color(0xFF0288D1)],
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                ),
+                borderRadius: BorderRadius.circular(22),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Row(
+                    children: [
+                      Icon(Icons.school_rounded, color: Colors.cyanAccent),
+                      SizedBox(width: 8),
+                      Text(
+                        'My Classes',
+                        style: TextStyle(
+                          color: Colors.white,
+                          fontSize: 18,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 14),
+                  TextField(
+                    controller: _inlineClassCodeCtrl,
+                    textCapitalization: TextCapitalization.characters,
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontWeight: FontWeight.bold,
+                    ),
+                    decoration: InputDecoration(
+                      hintText: 'Enter FIBER-XXXX class code',
+                      hintStyle: const TextStyle(color: Colors.white54),
+                      filled: true,
+                      fillColor: const Color(0xFF031C32).withOpacity(0.75),
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(14),
+                        borderSide: BorderSide.none,
+                      ),
+                      suffixIcon: IconButton(
+                        tooltip: 'Join class',
+                        onPressed: _handleInlineJoinClass,
+                        icon: const Icon(
+                          Icons.add_circle_rounded,
+                          color: Colors.cyanAccent,
+                        ),
+                      ),
+                    ),
+                    onChanged: (_) {
+                      if (_joinClassError != null) {
+                        setState(() => _joinClassError = null);
+                      }
+                    },
+                  ),
+                  if (_joinClassError != null) ...[
+                    const SizedBox(height: 8),
+                    Text(
+                      _joinClassError!,
+                      style: const TextStyle(
+                        color: Colors.amberAccent,
+                        fontWeight: FontWeight.w600,
+                        fontSize: 12,
+                      ),
+                    ),
+                  ],
+                ],
+              ),
+            ),
+            const SizedBox(height: 16),
+            if (joinedClasses.isNotEmpty)
+              Container(
+                margin: const EdgeInsets.only(bottom: 12),
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(16),
+                  border: Border.all(color: Colors.lightBlue.shade100),
+                ),
+                child: TextField(
+                  controller: _classSearchCtrl,
+                  onChanged: (_) => setState(() {}),
+                  decoration: InputDecoration(
+                    hintText: 'Search class name or code',
+                    prefixIcon: const Icon(
+                      Icons.search_rounded,
+                      color: Color(0xFF0277BD),
+                    ),
+                    suffixIcon: _classSearchCtrl.text.isEmpty
+                        ? null
+                        : IconButton(
+                            tooltip: 'Clear search',
+                            onPressed: () {
+                              _classSearchCtrl.clear();
+                              setState(() {});
+                            },
+                            icon: const Icon(Icons.close_rounded),
+                          ),
+                    border: InputBorder.none,
+                    contentPadding: const EdgeInsets.symmetric(
+                      horizontal: 16,
+                      vertical: 14,
+                    ),
+                  ),
+                ),
+              ),
+            if (joinedClasses.isEmpty)
+              Container(
+                padding: const EdgeInsets.all(24),
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(18),
+                  border: Border.all(color: Colors.lightBlue.shade100),
+                ),
+                child: const Column(
+                  children: [
+                    Icon(
+                      Icons.class_outlined,
+                      size: 44,
+                      color: Color(0xFF0277BD),
+                    ),
+                    SizedBox(height: 10),
+                    Text(
+                      'No joined classes yet',
+                      style: TextStyle(
+                        fontWeight: FontWeight.bold,
+                        color: Color(0xFF0B3C5D),
+                      ),
+                    ),
+                    SizedBox(height: 4),
+                    Text(
+                      'Enter a class code above to get started.',
+                      textAlign: TextAlign.center,
+                      style: TextStyle(color: Colors.black54),
+                    ),
+                  ],
+                ),
+              )
+            else if (filteredClassCodes.isEmpty)
+              Container(
+                padding: const EdgeInsets.all(24),
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(18),
+                  border: Border.all(color: Colors.lightBlue.shade100),
+                ),
+                child: const Column(
+                  children: [
+                    Icon(
+                      Icons.search_off_rounded,
+                      size: 44,
+                      color: Color(0xFF0277BD),
+                    ),
+                    SizedBox(height: 10),
+                    Text(
+                      'No matching classes',
+                      style: TextStyle(
+                        fontWeight: FontWeight.bold,
+                        color: Color(0xFF0B3C5D),
+                      ),
+                    ),
+                    SizedBox(height: 4),
+                    Text(
+                      'Try another class name or code.',
+                      textAlign: TextAlign.center,
+                      style: TextStyle(color: Colors.black54),
+                    ),
+                  ],
+                ),
+              )
+            else
+              ...filteredClassCodes.asMap().entries.map((entry) {
+                final index = entry.key;
+                final code = entry.value;
+                final classRoom = DataService.classes.firstWhere(
+                  (item) => item.id.toUpperCase() == code.toUpperCase(),
+                  orElse: () => ClassRoom(id: code, name: 'Class $code'),
+                );
+                final accent = <Color>[
+                  const Color(0xFF0277BD),
+                  const Color(0xFF00897B),
+                  const Color(0xFF3949AB),
+                  const Color(0xFF00ACC1),
+                ][index % 4];
+                final materials = DataService.modules.where((module) {
+                  return module.isPublished &&
+                      (module.classCode ?? '').trim().toUpperCase() ==
+                          code.toUpperCase();
+                }).toList();
+                final moduleCount = materials
+                    .where((module) => module.category == 'module')
+                    .length;
+                final quizCount = materials
+                    .where((module) => module.category == 'quiz')
+                    .length;
+                final examCount = materials
+                    .where((module) => module.category == 'mock_exam')
+                    .length;
+
+                return Container(
+                  margin: const EdgeInsets.only(bottom: 12),
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(18),
+                    border: Border.all(color: accent.withOpacity(0.25)),
+                    boxShadow: [
+                      BoxShadow(
+                        color: accent.withOpacity(0.08),
+                        blurRadius: 10,
+                        offset: const Offset(0, 4),
+                      ),
+                    ],
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      ListTile(
+                        contentPadding: const EdgeInsets.fromLTRB(14, 8, 10, 8),
+                        leading: CircleAvatar(
+                          backgroundColor: accent,
+                          child: const Icon(
+                            Icons.menu_book_rounded,
+                            color: Colors.white,
+                          ),
+                        ),
+                        title: Text(
+                          classRoom.name,
+                          style: const TextStyle(
+                            color: Color(0xFF0B3C5D),
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                        subtitle: Text(
+                          '$code',
+                          style: TextStyle(color: accent, fontSize: 12),
+                        ),
+                        trailing: const Icon(Icons.chevron_right_rounded),
+                        onTap: () {
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (_) =>
+                                  ClassPortalScreen(classRoom: classRoom),
+                            ),
+                          ).then((_) {
+                            if (mounted) setState(() {});
+                          });
+                        },
+                      ),
+                      Padding(
+                        padding: const EdgeInsets.fromLTRB(14, 0, 14, 14),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.stretch,
+                          children: [
+                            Wrap(
+                              spacing: 8,
+                              runSpacing: 8,
+                              children: [
+                                _classCountPill(
+                                  Icons.folder_rounded,
+                                  '$moduleCount ${moduleCount == 1 ? 'Module' : 'Modules'}',
+                                  Colors.teal.shade700,
+                                ),
+                                _classCountPill(
+                                  Icons.quiz_rounded,
+                                  '$quizCount ${quizCount == 1 ? 'Mini-Quiz' : 'Mini-Quizzes'}',
+                                  const Color(0xFF0277BD),
+                                ),
+                                _classCountPill(
+                                  Icons.assignment_rounded,
+                                  '$examCount ${examCount == 1 ? 'Mock Exam' : 'Mock Exams'}',
+                                  Colors.deepPurple,
+                                ),
+                              ],
+                            ),
+                            const SizedBox(height: 12),
+                            Wrap(
+                              spacing: 8,
+                              runSpacing: 8,
+                              children: [
+                                OutlinedButton.icon(
+                                  onPressed: () {
+                                    Navigator.push(
+                                      context,
+                                      MaterialPageRoute(
+                                        builder: (_) => ClassPortalScreen(
+                                          classRoom: classRoom,
+                                        ),
+                                      ),
+                                    );
+                                  },
+                                  icon: const Icon(
+                                    Icons.login_rounded,
+                                    size: 16,
+                                  ),
+                                  label: const Text('Open Class'),
+                                ),
+                                OutlinedButton.icon(
+                                  onPressed: () =>
+                                      _confirmUnenrollClass(classRoom),
+                                  icon: const Icon(
+                                    Icons.logout_rounded,
+                                    size: 16,
+                                    color: Colors.red,
+                                  ),
+                                  label: const Text(
+                                    'Unenroll',
+                                    style: TextStyle(color: Colors.red),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+                );
+              }),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildMiniGamesPage(ThemeData theme) {
+    return Container(
+      decoration: BoxDecoration(color: Colors.lightBlue.shade50),
+      child: SafeArea(
+        child: ListView(
+          key: const PageStorageKey<String>('student_mini_games_page'),
+          padding: const EdgeInsets.all(16),
+          children: [
+            Container(
+              padding: const EdgeInsets.all(18),
+              decoration: BoxDecoration(
+                gradient: const LinearGradient(
+                  colors: [Color(0xFF0B3C5D), Color(0xFF0288D1)],
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                ),
+                borderRadius: BorderRadius.circular(22),
+              ),
+              child: const Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      Icon(
+                        Icons.sports_esports_rounded,
+                        color: Colors.cyanAccent,
+                      ),
+                      SizedBox(width: 8),
+                      Text(
+                        'Mini Games',
+                        style: TextStyle(
+                          color: Colors.white,
+                          fontSize: 18,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                    ],
+                  ),
+                  SizedBox(height: 6),
+                  Text(
+                    'Practice fisheries terms and improve your board exam readiness.',
+                    style: TextStyle(color: Colors.white70, fontSize: 12),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 16),
+            _FeatureCard(
+              title: 'Flashcards',
+              subtitle:
+                  'Organize by subject, flip 3D cards, and track your accuracy',
+              color: const Color.fromARGB(255, 8, 140, 201),
+              icon: Icons.style_rounded,
+              onTap: () => Navigator.push(
+                context,
+                MaterialPageRoute(builder: (_) => const FlashcardsScreen()),
+              ),
+            ),
+            _FeatureCard(
+              title: 'Word Hunt',
+              subtitle: 'Find horizontal, vertical & diagonal fisheries terms',
+              color: const Color(0xFF002855),
+              icon: Icons.grid_on_rounded,
+              onTap: () => Navigator.push(
+                context,
+                MaterialPageRoute(builder: (_) => const WordHuntGame()),
+              ),
+            ),
+            _FeatureCard(
+              title: 'Word Shark',
+              subtitle:
+                  'Drag-and-drop FBLE vocabulary challenge with class leaderboard',
+              color: const Color(0xFF00695C),
+              icon: Icons.water_rounded,
+              onTap: () => Navigator.push(
+                context,
+                MaterialPageRoute(builder: (_) => const WordSharkGame()),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final modules = DataService.modules;
@@ -323,7 +761,11 @@ class _StudentHomeState extends State< StudentHome >
             theme.appBarTheme.backgroundColor ?? theme.colorScheme.surface,
         elevation: 0,
         title: Text(
-          'FiBER',
+          _selectedDashboardIndex == 0
+              ? 'FiBER'
+              : _selectedDashboardIndex == 1
+              ? 'My Classes'
+              : 'Mini Games',
           style: TextStyle(
             fontWeight: FontWeight.bold,
             color: theme.colorScheme.primary,
@@ -344,606 +786,700 @@ class _StudentHomeState extends State< StudentHome >
         ],
       ),
       drawer: _buildDrawer(theme),
-      body: Container(
-        decoration: BoxDecoration(color: Colors.lightBlue.shade50),
-        child: Stack(
-          children: [
-            Positioned.fill(
-              child: Opacity(
-                opacity: 0.7,
-                child: Image.asset(
-                  'lib/assets/images/Minimalist Blue Fish Pattern.png',
-                  fit: BoxFit.cover,
-                  color: Colors.lightBlue.shade200,
-                  colorBlendMode: BlendMode.modulate,
-                ),
-              ),
-            ),
-            SafeArea(
-              child: ListView(
-                key: const PageStorageKey< String >('student_home_scroll'),
-                padding: const EdgeInsets.all(16),
+      body: _selectedDashboardIndex == 0
+          ? Container(
+              decoration: BoxDecoration(color: Colors.lightBlue.shade50),
+              child: Stack(
                 children: [
-                  // ── Welcome Back & Live Study Time Hero Banner ──
-                  _buildRealtimeStatsRow(theme),
-                  const SizedBox(height: 16),
-
-                  // ── Sections 2.1–2.4 & 3.1–3.2: Restored Circular & Horizontal Sliding Student Performance Dashboard ──
-                  _buildComprehensiveStudentDashboard(theme),
-                  const SizedBox(height: 18),
-
-                  // ── 1. My Classes Container (With Dedicated Join Class Container, Google Classroom Cards & Unenroll) ──
-                  Container(
-                    padding: const EdgeInsets.all(16),
-                    decoration: BoxDecoration(
-                      color: Colors.white.withOpacity(0.94),
-                      borderRadius: BorderRadius.circular(22),
-                      border: Border.all(color: Colors.lightBlue.shade100),
-                      boxShadow: [
-                        BoxShadow(
-                          color: Colors.black.withOpacity(0.05),
-                          blurRadius: 12,
-                          offset: const Offset(0, 4),
-                        ),
-                      ],
+                  Positioned.fill(
+                    child: Opacity(
+                      opacity: 0.7,
+                      child: Image.asset(
+                        'lib/assets/images/Minimalist Blue Fish Pattern.png',
+                        fit: BoxFit.cover,
+                        color: Colors.lightBlue.shade200,
+                        colorBlendMode: BlendMode.modulate,
+                      ),
                     ),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                  ),
+                  SafeArea(
+                    child: ListView(
+                      key: const PageStorageKey<String>('student_home_scroll'),
+                      padding: const EdgeInsets.all(16),
                       children: [
-                        Row(
-                          children: [
-                            const Icon(
-                              Icons.school_rounded,
-                              color: Color(0xFF0B3C5D),
-                            ),
-                            const SizedBox(width: 8),
-                            const Expanded(
-                              child: Text(
-                                'My Classes',
-                                style: TextStyle(
-                                  fontWeight: FontWeight.bold,
-                                  fontSize: 18,
-                                  color: Color(0xFF0B3C5D),
-                                ),
-                              ),
-                            ),
-                            TextButton.icon(
-                              onPressed: () => Navigator.push(
-                                context,
-                                MaterialPageRoute(
-                                  builder: (_) => const JoinClassScreen(),
-                                ),
-                              ).then((_) {
-                                if (mounted) setState(() {});
-                              }),
-                              icon: const Icon(
-                                Icons.open_in_new_rounded,
-                                size: 16,
-                              ),
-                              label: const Text('All Classes'),
-                            ),
-                          ],
-                        ),
-                        const SizedBox(height: 2),
-                        const Text(
-                          'Open your enrolled classes to access Module Folders, Mini-Quizzes, and Mock Exams',
-                          style: TextStyle(fontSize: 12, color: Colors.black54),
-                        ),
-                        const SizedBox(height: 14),
+                        // ── Welcome Back & Live Study Time Hero Banner ──
+                        _buildRealtimeStatsRow(theme),
+                        const SizedBox(height: 16),
 
-                        // ── Section 4.1: Dedicated Join Class Container inside My Classes ──
-                        Container(
-                          padding: const EdgeInsets.all(14),
-                          decoration: BoxDecoration(
-                            gradient: const LinearGradient(
-                              colors: [Color(0xFF082D49), Color(0xFF0B3C5D)],
-                              begin: Alignment.topLeft,
-                              end: Alignment.bottomRight,
-                            ),
-                            borderRadius: BorderRadius.circular(18),
-                            border: Border.all(
-                              color: Colors.cyanAccent.withOpacity(0.35),
-                            ),
-                          ),
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.stretch,
-                            children: [
-                              const Row(
-                                children: [
-                                  Icon(
-                                    Icons.vpn_key_rounded,
-                                    color: Colors.cyanAccent,
-                                    size: 18,
-                                  ),
-                                  SizedBox(width: 8),
-                                  Text(
-                                    'Join a Class',
-                                    style: TextStyle(
-                                      color: Colors.white,
-                                      fontWeight: FontWeight.bold,
-                                      fontSize: 14,
-                                    ),
-                                  ),
-                                ],
+                        // ── Sections 2.1–2.4 & 3.1–3.2: Restored Circular & Horizontal Sliding Student Performance Dashboard ──
+                        _buildComprehensiveStudentDashboard(theme),
+                        const SizedBox(height: 18),
+
+                        // My Classes and Mini Games are available from the bottom navigation.
+                        if (false)
+                          Container(
+                            padding: const EdgeInsets.all(16),
+                            decoration: BoxDecoration(
+                              color: Colors.white.withOpacity(0.94),
+                              borderRadius: BorderRadius.circular(22),
+                              border: Border.all(
+                                color: Colors.lightBlue.shade100,
                               ),
-                              const SizedBox(height: 4),
-                              const Text(
-                                'Enter the FIBER-XXXX class code provided by your instructor:',
-                                style: TextStyle(
-                                  color: Colors.white70,
-                                  fontSize: 11.5,
-                                ),
-                              ),
-                              const SizedBox(height: 10),
-                              Row(
-                                children: [
-                                  Expanded(
-                                    child: TextField(
-                                      controller: _inlineClassCodeCtrl,
-                                      textCapitalization:
-                                          TextCapitalization.characters,
-                                      style: const TextStyle(
-                                        color: Colors.white,
-                                        fontWeight: FontWeight.bold,
-                                        fontSize: 13.5,
-                                      ),
-                                      decoration: InputDecoration(
-                                        hintText: 'e.g., FIBER-2026',
-                                        hintStyle: const TextStyle(
-                                          color: Colors.white38,
-                                          fontSize: 12.5,
-                                        ),
-                                        isDense: true,
-                                        filled: true,
-                                        fillColor: const Color(0xFF031C32)
-                                            .withOpacity(0.75),
-                                        border: OutlineInputBorder(
-                                          borderRadius:
-                                              BorderRadius.circular(12),
-                                          borderSide: const BorderSide(
-                                            color: Colors.white24,
-                                          ),
-                                        ),
-                                        enabledBorder: OutlineInputBorder(
-                                          borderRadius:
-                                              BorderRadius.circular(12),
-                                          borderSide: const BorderSide(
-                                            color: Colors.white24,
-                                          ),
-                                        ),
-                                      ),
-                                      onChanged: (_) {
-                                        if (_joinClassError != null) {
-                                          setState(
-                                            () => _joinClassError = null,
-                                          );
-                                        }
-                                      },
-                                    ),
-                                  ),
-                                  const SizedBox(width: 8),
-                                  ElevatedButton.icon(
-                                    onPressed: _handleInlineJoinClass,
-                                    icon: const Icon(
-                                      Icons.add_task_rounded,
-                                      size: 17,
-                                    ),
-                                    label: const Text(
-                                      'Join Class',
-                                      style: TextStyle(
-                                        fontWeight: FontWeight.bold,
-                                        fontSize: 12.5,
-                                      ),
-                                    ),
-                                    style: ElevatedButton.styleFrom(
-                                      backgroundColor: const Color(0xFF00BCD4),
-                                      foregroundColor: Colors.white,
-                                      padding: const EdgeInsets.symmetric(
-                                        horizontal: 14,
-                                        vertical: 12,
-                                      ),
-                                      shape: RoundedRectangleBorder(
-                                        borderRadius: BorderRadius.circular(12),
-                                      ),
-                                    ),
-                                  ),
-                                ],
-                              ),
-                              if (_joinClassError != null) ...[
-                                const SizedBox(height: 6),
-                                Text(
-                                  _joinClassError!,
-                                  style: const TextStyle(
-                                    color: Colors.amberAccent,
-                                    fontSize: 11.5,
-                                    fontWeight: FontWeight.w600,
-                                  ),
+                              boxShadow: [
+                                BoxShadow(
+                                  color: Colors.black.withOpacity(0.05),
+                                  blurRadius: 12,
+                                  offset: const Offset(0, 4),
                                 ),
                               ],
-                            ],
-                          ),
-                        ),
-                        const SizedBox(height: 14),
+                            ),
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.stretch,
+                              children: [
+                                Row(
+                                  children: [
+                                    const Icon(
+                                      Icons.school_rounded,
+                                      color: Color(0xFF0B3C5D),
+                                    ),
+                                    const SizedBox(width: 8),
+                                    const Expanded(
+                                      child: Text(
+                                        'My Classes',
+                                        style: TextStyle(
+                                          fontWeight: FontWeight.bold,
+                                          fontSize: 18,
+                                          color: Color(0xFF0B3C5D),
+                                        ),
+                                      ),
+                                    ),
+                                    TextButton.icon(
+                                      onPressed: () =>
+                                          Navigator.push(
+                                            context,
+                                            MaterialPageRoute(
+                                              builder: (_) =>
+                                                  const JoinClassScreen(),
+                                            ),
+                                          ).then((_) {
+                                            if (mounted) setState(() {});
+                                          }),
+                                      icon: const Icon(
+                                        Icons.open_in_new_rounded,
+                                        size: 16,
+                                      ),
+                                      label: const Text('All Classes'),
+                                    ),
+                                  ],
+                                ),
+                                const SizedBox(height: 2),
+                                const Text(
+                                  'Open your enrolled classes to access Module Folders, Mini-Quizzes, and Mock Exams',
+                                  style: TextStyle(
+                                    fontSize: 12,
+                                    color: Colors.black54,
+                                  ),
+                                ),
+                                const SizedBox(height: 14),
 
-                        if (joinedClasses.isEmpty)
+                                // ── Section 4.1: Dedicated Join Class Container inside My Classes ──
+                                Container(
+                                  padding: const EdgeInsets.all(14),
+                                  decoration: BoxDecoration(
+                                    gradient: const LinearGradient(
+                                      colors: [
+                                        Color(0xFF082D49),
+                                        Color(0xFF0B3C5D),
+                                      ],
+                                      begin: Alignment.topLeft,
+                                      end: Alignment.bottomRight,
+                                    ),
+                                    borderRadius: BorderRadius.circular(18),
+                                    border: Border.all(
+                                      color: Colors.cyanAccent.withOpacity(
+                                        0.35,
+                                      ),
+                                    ),
+                                  ),
+                                  child: Column(
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.stretch,
+                                    children: [
+                                      const Row(
+                                        children: [
+                                          Icon(
+                                            Icons.vpn_key_rounded,
+                                            color: Colors.cyanAccent,
+                                            size: 18,
+                                          ),
+                                          SizedBox(width: 8),
+                                          Text(
+                                            'Join a Class',
+                                            style: TextStyle(
+                                              color: Colors.white,
+                                              fontWeight: FontWeight.bold,
+                                              fontSize: 14,
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                      const SizedBox(height: 4),
+                                      const Text(
+                                        'Enter the FIBER-XXXX class code provided by your instructor:',
+                                        style: TextStyle(
+                                          color: Colors.white70,
+                                          fontSize: 11.5,
+                                        ),
+                                      ),
+                                      const SizedBox(height: 10),
+                                      Row(
+                                        children: [
+                                          Expanded(
+                                            child: TextField(
+                                              controller: _inlineClassCodeCtrl,
+                                              textCapitalization:
+                                                  TextCapitalization.characters,
+                                              style: const TextStyle(
+                                                color: Colors.white,
+                                                fontWeight: FontWeight.bold,
+                                                fontSize: 13.5,
+                                              ),
+                                              decoration: InputDecoration(
+                                                hintText: 'e.g., FIBER-2026',
+                                                hintStyle: const TextStyle(
+                                                  color: Colors.white38,
+                                                  fontSize: 12.5,
+                                                ),
+                                                isDense: true,
+                                                filled: true,
+                                                fillColor: const Color(
+                                                  0xFF031C32,
+                                                ).withOpacity(0.75),
+                                                border: OutlineInputBorder(
+                                                  borderRadius:
+                                                      BorderRadius.circular(12),
+                                                  borderSide: const BorderSide(
+                                                    color: Colors.white24,
+                                                  ),
+                                                ),
+                                                enabledBorder:
+                                                    OutlineInputBorder(
+                                                      borderRadius:
+                                                          BorderRadius.circular(
+                                                            12,
+                                                          ),
+                                                      borderSide:
+                                                          const BorderSide(
+                                                            color:
+                                                                Colors.white24,
+                                                          ),
+                                                    ),
+                                              ),
+                                              onChanged: (_) {
+                                                if (_joinClassError != null) {
+                                                  setState(
+                                                    () =>
+                                                        _joinClassError = null,
+                                                  );
+                                                }
+                                              },
+                                            ),
+                                          ),
+                                          const SizedBox(width: 8),
+                                          ElevatedButton.icon(
+                                            onPressed: _handleInlineJoinClass,
+                                            icon: const Icon(
+                                              Icons.add_task_rounded,
+                                              size: 17,
+                                            ),
+                                            label: const Text(
+                                              'Join Class',
+                                              style: TextStyle(
+                                                fontWeight: FontWeight.bold,
+                                                fontSize: 12.5,
+                                              ),
+                                            ),
+                                            style: ElevatedButton.styleFrom(
+                                              backgroundColor: const Color(
+                                                0xFF00BCD4,
+                                              ),
+                                              foregroundColor: Colors.white,
+                                              padding:
+                                                  const EdgeInsets.symmetric(
+                                                    horizontal: 14,
+                                                    vertical: 12,
+                                                  ),
+                                              shape: RoundedRectangleBorder(
+                                                borderRadius:
+                                                    BorderRadius.circular(12),
+                                              ),
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                      if (_joinClassError != null) ...[
+                                        const SizedBox(height: 6),
+                                        Text(
+                                          _joinClassError!,
+                                          style: const TextStyle(
+                                            color: Colors.amberAccent,
+                                            fontSize: 11.5,
+                                            fontWeight: FontWeight.w600,
+                                          ),
+                                        ),
+                                      ],
+                                    ],
+                                  ),
+                                ),
+                                const SizedBox(height: 14),
+
+                                if (joinedClasses.isEmpty)
+                                  Container(
+                                    padding: const EdgeInsets.all(20),
+                                    decoration: BoxDecoration(
+                                      color: const Color(0xFFF0F8FF),
+                                      borderRadius: BorderRadius.circular(16),
+                                      border: Border.all(
+                                        color: Colors.lightBlue.shade100,
+                                      ),
+                                    ),
+                                    child: const Column(
+                                      children: [
+                                        Icon(
+                                          Icons.class_outlined,
+                                          size: 36,
+                                          color: Color(0xFF0277BD),
+                                        ),
+                                        SizedBox(height: 8),
+                                        Text(
+                                          'You haven\'t joined any classes yet.\nEnter your teacher\'s FIBER-XXXX code above to unlock class modules, quizzes, and mock exams.',
+                                          textAlign: TextAlign.center,
+                                          style: TextStyle(
+                                            fontSize: 12.5,
+                                            color: Colors.black54,
+                                            height: 1.4,
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  )
+                                else
+                                  ...joinedClasses.asMap().entries.map((entry) {
+                                    final idx = entry.key;
+                                    final code = entry.value;
+                                    final classRoom = DataService.classes
+                                        .firstWhere(
+                                          (c) =>
+                                              c.id.toUpperCase() ==
+                                              code.toUpperCase(),
+                                          orElse: () => ClassRoom(
+                                            id: code,
+                                            name: 'Class $code',
+                                          ),
+                                        );
+                                    final classMaterials = DataService.modules
+                                        .where(
+                                          (m) =>
+                                              m.isPublished &&
+                                              (m.classCode ?? '')
+                                                      .trim()
+                                                      .toUpperCase() ==
+                                                  code.toUpperCase(),
+                                        )
+                                        .toList();
+                                    final modCount = classMaterials
+                                        .where((m) => m.category == 'module')
+                                        .length;
+                                    final quizCount = classMaterials
+                                        .where((m) => m.category == 'quiz')
+                                        .length;
+                                    final examCount = classMaterials
+                                        .where((m) => m.category == 'mock_exam')
+                                        .length;
+                                    final accentColors = <Color>[
+                                      const Color(0xFF0277BD),
+                                      const Color(0xFF00897B),
+                                      const Color(0xFF3949AB),
+                                      const Color(0xFF00ACC1),
+                                    ];
+                                    final accent =
+                                        accentColors[idx % accentColors.length];
+
+                                    return Container(
+                                      margin: const EdgeInsets.only(bottom: 12),
+                                      decoration: BoxDecoration(
+                                        color: Colors.white,
+                                        borderRadius: BorderRadius.circular(18),
+                                        border: Border.all(
+                                          color: accent.withOpacity(0.28),
+                                          width: 1.2,
+                                        ),
+                                        boxShadow: [
+                                          BoxShadow(
+                                            color: accent.withOpacity(0.08),
+                                            blurRadius: 10,
+                                            offset: const Offset(0, 4),
+                                          ),
+                                        ],
+                                      ),
+                                      child: Column(
+                                        crossAxisAlignment:
+                                            CrossAxisAlignment.stretch,
+                                        children: [
+                                          // Top Student Classroom Strip
+                                          Container(
+                                            padding: const EdgeInsets.symmetric(
+                                              horizontal: 16,
+                                              vertical: 14,
+                                            ),
+                                            decoration: BoxDecoration(
+                                              color: accent.withOpacity(0.1),
+                                              borderRadius:
+                                                  const BorderRadius.vertical(
+                                                    top: Radius.circular(17),
+                                                  ),
+                                            ),
+                                            child: Row(
+                                              children: [
+                                                CircleAvatar(
+                                                  radius: 20,
+                                                  backgroundColor: accent,
+                                                  child: const Icon(
+                                                    Icons.menu_book_rounded,
+                                                    color: Colors.white,
+                                                    size: 20,
+                                                  ),
+                                                ),
+                                                const SizedBox(width: 12),
+                                                Expanded(
+                                                  child: Column(
+                                                    crossAxisAlignment:
+                                                        CrossAxisAlignment
+                                                            .start,
+                                                    children: [
+                                                      Text(
+                                                        classRoom.name,
+                                                        maxLines: 1,
+                                                        overflow: TextOverflow
+                                                            .ellipsis,
+                                                        style: const TextStyle(
+                                                          fontWeight:
+                                                              FontWeight.bold,
+                                                          fontSize: 16,
+                                                          color: Color(
+                                                            0xFF0B3C5D,
+                                                          ),
+                                                        ),
+                                                      ),
+                                                      const SizedBox(height: 2),
+                                                      Text(
+                                                        'Class Code: $code',
+                                                        style: TextStyle(
+                                                          fontSize: 12,
+                                                          fontWeight:
+                                                              FontWeight.w600,
+                                                          color: accent,
+                                                        ),
+                                                      ),
+                                                    ],
+                                                  ),
+                                                ),
+                                                Container(
+                                                  padding:
+                                                      const EdgeInsets.symmetric(
+                                                        horizontal: 8,
+                                                        vertical: 4,
+                                                      ),
+                                                  decoration: BoxDecoration(
+                                                    color: Colors.green.shade50,
+                                                    borderRadius:
+                                                        BorderRadius.circular(
+                                                          12,
+                                                        ),
+                                                    border: Border.all(
+                                                      color:
+                                                          Colors.green.shade300,
+                                                    ),
+                                                  ),
+                                                  child: Text(
+                                                    'Enrolled',
+                                                    style: TextStyle(
+                                                      fontSize: 10.5,
+                                                      fontWeight:
+                                                          FontWeight.bold,
+                                                      color:
+                                                          Colors.green.shade800,
+                                                    ),
+                                                  ),
+                                                ),
+                                              ],
+                                            ),
+                                          ),
+                                          Padding(
+                                            padding: const EdgeInsets.all(14),
+                                            child: Column(
+                                              crossAxisAlignment:
+                                                  CrossAxisAlignment.stretch,
+                                              children: [
+                                                Wrap(
+                                                  spacing: 8,
+                                                  runSpacing: 6,
+                                                  children: [
+                                                    _classCountPill(
+                                                      Icons.folder_outlined,
+                                                      '$modCount Modules',
+                                                      Colors.teal.shade700,
+                                                    ),
+                                                    _classCountPill(
+                                                      Icons.quiz_outlined,
+                                                      '$quizCount Mini-Quizzes',
+                                                      const Color(0xFF0277BD),
+                                                    ),
+                                                    _classCountPill(
+                                                      Icons.assignment_outlined,
+                                                      '$examCount Mock Exams',
+                                                      Colors.deepPurple,
+                                                    ),
+                                                  ],
+                                                ),
+                                                const SizedBox(height: 12),
+                                                Row(
+                                                  children: [
+                                                    Expanded(
+                                                      child: ElevatedButton.icon(
+                                                        onPressed: () {
+                                                          Navigator.push(
+                                                            context,
+                                                            MaterialPageRoute(
+                                                              builder: (_) =>
+                                                                  ClassPortalScreen(
+                                                                    classRoom:
+                                                                        classRoom,
+                                                                  ),
+                                                            ),
+                                                          ).then((_) {
+                                                            if (mounted)
+                                                              setState(() {});
+                                                          });
+                                                        },
+                                                        icon: const Icon(
+                                                          Icons.login_rounded,
+                                                          size: 17,
+                                                        ),
+                                                        label: const Text(
+                                                          'Open Class',
+                                                          style: TextStyle(
+                                                            fontWeight:
+                                                                FontWeight.bold,
+                                                            fontSize: 13,
+                                                          ),
+                                                        ),
+                                                        style: ElevatedButton.styleFrom(
+                                                          backgroundColor:
+                                                              accent,
+                                                          foregroundColor:
+                                                              Colors.white,
+                                                          elevation: 0,
+                                                          padding:
+                                                              const EdgeInsets.symmetric(
+                                                                vertical: 10,
+                                                              ),
+                                                          shape: RoundedRectangleBorder(
+                                                            borderRadius:
+                                                                BorderRadius.circular(
+                                                                  12,
+                                                                ),
+                                                          ),
+                                                        ),
+                                                      ),
+                                                    ),
+                                                    const SizedBox(width: 8),
+                                                    OutlinedButton.icon(
+                                                      onPressed: () =>
+                                                          _confirmUnenrollClass(
+                                                            classRoom,
+                                                          ),
+                                                      icon: const Icon(
+                                                        Icons
+                                                            .exit_to_app_rounded,
+                                                        size: 16,
+                                                        color: Colors.redAccent,
+                                                      ),
+                                                      label: const Text(
+                                                        'Unenroll',
+                                                        style: TextStyle(
+                                                          color:
+                                                              Colors.redAccent,
+                                                          fontWeight:
+                                                              FontWeight.w600,
+                                                          fontSize: 12,
+                                                        ),
+                                                      ),
+                                                      style: OutlinedButton.styleFrom(
+                                                        side: BorderSide(
+                                                          color: Colors
+                                                              .red
+                                                              .shade200,
+                                                        ),
+                                                        padding:
+                                                            const EdgeInsets.symmetric(
+                                                              horizontal: 12,
+                                                              vertical: 10,
+                                                            ),
+                                                        shape: RoundedRectangleBorder(
+                                                          borderRadius:
+                                                              BorderRadius.circular(
+                                                                12,
+                                                              ),
+                                                        ),
+                                                      ),
+                                                    ),
+                                                  ],
+                                                ),
+                                              ],
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                    );
+                                  }),
+                              ],
+                            ),
+                          ),
+                        const SizedBox(height: 16),
+
+                        if (false)
                           Container(
-                            padding: const EdgeInsets.all(20),
+                            padding: const EdgeInsets.all(16),
                             decoration: BoxDecoration(
-                              color: const Color(0xFFF0F8FF),
-                              borderRadius: BorderRadius.circular(16),
+                              color: Colors.white.withOpacity(0.9),
+                              borderRadius: BorderRadius.circular(22),
                               border: Border.all(
                                 color: Colors.lightBlue.shade100,
                               ),
                             ),
-                            child: const Column(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
-                                Icon(
-                                  Icons.class_outlined,
-                                  size: 36,
-                                  color: Color(0xFF0277BD),
+                                Row(
+                                  children: [
+                                    const Icon(
+                                      Icons.sports_esports_rounded,
+                                      color: Color(0xFF0B3C5D),
+                                    ),
+                                    const SizedBox(width: 8),
+                                    const Expanded(
+                                      child: Text(
+                                        'Mini Games',
+                                        style: TextStyle(
+                                          fontWeight: FontWeight.bold,
+                                          fontSize: 18,
+                                          color: Color(0xFF0B3C5D),
+                                        ),
+                                      ),
+                                    ),
+                                    IconButton(
+                                      icon: const Icon(
+                                        Icons.refresh_rounded,
+                                        color: Color(0xFF0277BD),
+                                        size: 20,
+                                      ),
+                                      tooltip: 'Refresh Mini Games Data',
+                                      onPressed: _isRefreshing
+                                          ? null
+                                          : _refreshDashboardData,
+                                    ),
+                                  ],
                                 ),
-                                SizedBox(height: 8),
-                                Text(
-                                  'You haven\'t joined any classes yet.\nEnter your teacher\'s FIBER-XXXX code above to unlock class modules, quizzes, and mock exams.',
-                                  textAlign: TextAlign.center,
+                                const SizedBox(height: 4),
+                                const Text(
+                                  'Reinforce Fisheries Board Exam terminology through interactive games',
                                   style: TextStyle(
-                                    fontSize: 12.5,
+                                    fontSize: 12,
                                     color: Colors.black54,
-                                    height: 1.4,
+                                  ),
+                                ),
+                                const SizedBox(height: 14),
+                                _FeatureCard(
+                                  title: 'Flashcards',
+                                  subtitle:
+                                      'Organize by subject, flip 3D cards, and track your accuracy',
+                                  color: const Color.fromARGB(255, 8, 140, 201),
+                                  icon: Icons.style_rounded,
+                                  onTap: () => Navigator.push(
+                                    context,
+                                    MaterialPageRoute(
+                                      builder: (_) => const FlashcardsScreen(),
+                                    ),
+                                  ),
+                                ),
+                                _FeatureCard(
+                                  title: 'Word Hunt',
+                                  subtitle:
+                                      'Find horizontal, vertical & diagonal fisheries terms',
+                                  color: const Color(0xFF002855),
+                                  icon: Icons.grid_on_rounded,
+                                  onTap: () => Navigator.push(
+                                    context,
+                                    MaterialPageRoute(
+                                      builder: (_) => const WordHuntGame(),
+                                    ),
+                                  ),
+                                ),
+                                _FeatureCard(
+                                  title: 'Word Shark',
+                                  subtitle:
+                                      'Drag-and-drop FBLE spelling challenge with class leaderboard',
+                                  color: const Color(0xFF00695C),
+                                  icon: Icons.water_rounded,
+                                  onTap: () => Navigator.push(
+                                    context,
+                                    MaterialPageRoute(
+                                      builder: (_) => const WordSharkGame(),
+                                    ),
                                   ),
                                 ),
                               ],
                             ),
-                          )
-                        else
-                          ...joinedClasses.asMap().entries.map((entry) {
-                            final idx = entry.key;
-                            final code = entry.value;
-                            final classRoom = DataService.classes.firstWhere(
-                              (c) => c.id.toUpperCase() == code.toUpperCase(),
-                              orElse: () =>
-                                  ClassRoom(id: code, name: 'Class $code'),
-                            );
-                            final classMaterials = DataService.modules
-                                .where(
-                                  (m) =>
-                                      m.isPublished &&
-                                      (m.classCode ?? '')
-                                              .trim()
-                                              .toUpperCase() ==
-                                          code.toUpperCase(),
-                                )
-                                .toList();
-                            final modCount = classMaterials
-                                .where((m) => m.category == 'module')
-                                .length;
-                            final quizCount = classMaterials
-                                .where((m) => m.category == 'quiz')
-                                .length;
-                            final examCount = classMaterials
-                                .where((m) => m.category == 'mock_exam')
-                                .length;
-                            final accentColors = < Color >[
-                              const Color(0xFF0277BD),
-                              const Color(0xFF00897B),
-                              const Color(0xFF3949AB),
-                              const Color(0xFF00ACC1),
-                            ];
-                            final accent =
-                                accentColors[idx % accentColors.length];
-
-                            return Container(
-                              margin: const EdgeInsets.only(bottom: 12),
-                              decoration: BoxDecoration(
-                                color: Colors.white,
-                                borderRadius: BorderRadius.circular(18),
-                                border: Border.all(
-                                  color: accent.withOpacity(0.28),
-                                  width: 1.2,
-                                ),
-                                boxShadow: [
-                                  BoxShadow(
-                                    color: accent.withOpacity(0.08),
-                                    blurRadius: 10,
-                                    offset: const Offset(0, 4),
-                                  ),
-                                ],
-                              ),
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.stretch,
-                                children: [
-                                  // Top Student Classroom Strip
-                                  Container(
-                                    padding: const EdgeInsets.symmetric(
-                                      horizontal: 16,
-                                      vertical: 14,
-                                    ),
-                                    decoration: BoxDecoration(
-                                      color: accent.withOpacity(0.1),
-                                      borderRadius:
-                                          const BorderRadius.vertical(
-                                        top: Radius.circular(17),
-                                      ),
-                                    ),
-                                    child: Row(
-                                      children: [
-                                        CircleAvatar(
-                                          radius: 20,
-                                          backgroundColor: accent,
-                                          child: const Icon(
-                                            Icons.menu_book_rounded,
-                                            color: Colors.white,
-                                            size: 20,
-                                          ),
-                                        ),
-                                        const SizedBox(width: 12),
-                                        Expanded(
-                                          child: Column(
-                                            crossAxisAlignment:
-                                                CrossAxisAlignment.start,
-                                            children: [
-                                              Text(
-                                                classRoom.name,
-                                                maxLines: 1,
-                                                overflow: TextOverflow.ellipsis,
-                                                style: const TextStyle(
-                                                  fontWeight: FontWeight.bold,
-                                                  fontSize: 16,
-                                                  color: Color(0xFF0B3C5D),
-                                                ),
-                                              ),
-                                              const SizedBox(height: 2),
-                                              Text(
-                                                'Class Code: $code',
-                                                style: TextStyle(
-                                                  fontSize: 12,
-                                                  fontWeight: FontWeight.w600,
-                                                  color: accent,
-                                                ),
-                                              ),
-                                            ],
-                                          ),
-                                        ),
-                                        Container(
-                                          padding: const EdgeInsets.symmetric(
-                                            horizontal: 8,
-                                            vertical: 4,
-                                          ),
-                                          decoration: BoxDecoration(
-                                            color: Colors.green.shade50,
-                                            borderRadius:
-                                                BorderRadius.circular(12),
-                                            border: Border.all(
-                                              color: Colors.green.shade300,
-                                            ),
-                                          ),
-                                          child: Text(
-                                            'Enrolled',
-                                            style: TextStyle(
-                                              fontSize: 10.5,
-                                              fontWeight: FontWeight.bold,
-                                              color: Colors.green.shade800,
-                                            ),
-                                          ),
-                                        ),
-                                      ],
-                                    ),
-                                  ),
-                                  Padding(
-                                    padding: const EdgeInsets.all(14),
-                                    child: Column(
-                                      crossAxisAlignment:
-                                          CrossAxisAlignment.stretch,
-                                      children: [
-                                        Wrap(
-                                          spacing: 8,
-                                          runSpacing: 6,
-                                          children: [
-                                            _classCountPill(
-                                              Icons.folder_outlined,
-                                              '$modCount Modules',
-                                              Colors.teal.shade700,
-                                            ),
-                                            _classCountPill(
-                                              Icons.quiz_outlined,
-                                              '$quizCount Mini-Quizzes',
-                                              const Color(0xFF0277BD),
-                                            ),
-                                            _classCountPill(
-                                              Icons.assignment_outlined,
-                                              '$examCount Mock Exams',
-                                              Colors.deepPurple,
-                                            ),
-                                          ],
-                                        ),
-                                        const SizedBox(height: 12),
-                                        Row(
-                                          children: [
-                                            Expanded(
-                                              child: ElevatedButton.icon(
-                                                onPressed: () {
-                                                  Navigator.push(
-                                                    context,
-                                                    MaterialPageRoute(
-                                                      builder: (_) =>
-                                                          ClassPortalScreen(
-                                                        classRoom: classRoom,
-                                                      ),
-                                                    ),
-                                                  ).then((_) {
-                                                    if (mounted) setState(() {});
-                                                  });
-                                                },
-                                                icon: const Icon(
-                                                  Icons.login_rounded,
-                                                  size: 17,
-                                                ),
-                                                label: const Text(
-                                                  'Open Class',
-                                                  style: TextStyle(
-                                                    fontWeight: FontWeight.bold,
-                                                    fontSize: 13,
-                                                  ),
-                                                ),
-                                                style: ElevatedButton.styleFrom(
-                                                  backgroundColor: accent,
-                                                  foregroundColor: Colors.white,
-                                                  elevation: 0,
-                                                  padding:
-                                                      const EdgeInsets.symmetric(
-                                                    vertical: 10,
-                                                  ),
-                                                  shape: RoundedRectangleBorder(
-                                                    borderRadius:
-                                                        BorderRadius.circular(
-                                                      12,
-                                                    ),
-                                                  ),
-                                                ),
-                                              ),
-                                            ),
-                                            const SizedBox(width: 8),
-                                            OutlinedButton.icon(
-                                              onPressed: () =>
-                                                  _confirmUnenrollClass(
-                                                classRoom,
-                                              ),
-                                              icon: const Icon(
-                                                Icons.exit_to_app_rounded,
-                                                size: 16,
-                                                color: Colors.redAccent,
-                                              ),
-                                              label: const Text(
-                                                'Unenroll',
-                                                style: TextStyle(
-                                                  color: Colors.redAccent,
-                                                  fontWeight: FontWeight.w600,
-                                                  fontSize: 12,
-                                                ),
-                                              ),
-                                              style: OutlinedButton.styleFrom(
-                                                side: BorderSide(
-                                                  color: Colors.red.shade200,
-                                                ),
-                                                padding:
-                                                    const EdgeInsets.symmetric(
-                                                  horizontal: 12,
-                                                  vertical: 10,
-                                                ),
-                                                shape: RoundedRectangleBorder(
-                                                  borderRadius:
-                                                      BorderRadius.circular(12),
-                                                ),
-                                              ),
-                                            ),
-                                          ],
-                                        ),
-                                      ],
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            );
-                          }),
-                      ],
-                    ),
-                  ),
-                  const SizedBox(height: 16),
-
-                  // ── 2. Separate Mini Games Container (Flashcards, Word Hunt, Word Shark) ──
-                  Container(
-                    padding: const EdgeInsets.all(16),
-                    decoration: BoxDecoration(
-                      color: Colors.white.withOpacity(0.9),
-                      borderRadius: BorderRadius.circular(22),
-                      border: Border.all(color: Colors.lightBlue.shade100),
-                    ),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Row(
-                          children: [
-                            const Icon(
-                              Icons.sports_esports_rounded,
-                              color: Color(0xFF0B3C5D),
-                            ),
-                            const SizedBox(width: 8),
-                            const Expanded(
-                              child: Text(
-                                'Mini Games',
-                                style: TextStyle(
-                                  fontWeight: FontWeight.bold,
-                                  fontSize: 18,
-                                  color: Color(0xFF0B3C5D),
-                                ),
-                              ),
-                            ),
-                            IconButton(
-                              icon: const Icon(
-                                Icons.refresh_rounded,
-                                color: Color(0xFF0277BD),
-                                size: 20,
-                              ),
-                              tooltip: 'Refresh Mini Games Data',
-                              onPressed: _isRefreshing
-                                  ? null
-                                  : _refreshDashboardData,
-                            ),
-                          ],
-                        ),
-                        const SizedBox(height: 4),
-                        const Text(
-                          'Reinforce Fisheries Board Exam terminology through interactive games',
-                          style: TextStyle(fontSize: 12, color: Colors.black54),
-                        ),
-                        const SizedBox(height: 14),
-                        _FeatureCard(
-                          title: 'Flashcards',
-                          subtitle:
-                              'Organize by subject, flip 3D cards, and track your accuracy',
-                          color: const Color.fromARGB(255, 8, 140, 201),
-                          icon: Icons.style_rounded,
-                          onTap: () => Navigator.push(
-                            context,
-                            MaterialPageRoute(
-                              builder: (_) => const FlashcardsScreen(),
-                            ),
                           ),
-                        ),
-                        _FeatureCard(
-                          title: 'Word Hunt',
-                          subtitle:
-                              'Find horizontal, vertical & diagonal fisheries terms',
-                          color: const Color(0xFF002855),
-                          icon: Icons.grid_on_rounded,
-                          onTap: () => Navigator.push(
-                            context,
-                            MaterialPageRoute(
-                              builder: (_) => const WordHuntGame(),
-                            ),
-                          ),
-                        ),
-                        _FeatureCard(
-                          title: 'Word Shark',
-                          subtitle:
-                              'Drag-and-drop FBLE spelling challenge with class leaderboard',
-                          color: const Color(0xFF00695C),
-                          icon: Icons.water_rounded,
-                          onTap: () => Navigator.push(
-                            context,
-                            MaterialPageRoute(
-                              builder: (_) => const WordSharkGame(),
-                            ),
-                          ),
-                        ),
                       ],
                     ),
                   ),
                 ],
               ),
+            )
+          : _selectedDashboardIndex == 1
+          ? _buildClassesPage(theme)
+          : _buildMiniGamesPage(theme),
+      bottomNavigationBar: NavigationBar(
+        height: 72,
+        selectedIndex: _selectedDashboardIndex,
+        backgroundColor: Colors.white,
+        indicatorColor: const Color(0xFF0288D1).withOpacity(0.14),
+        surfaceTintColor: Colors.white,
+        onDestinationSelected: (index) {
+          setState(() => _selectedDashboardIndex = index);
+        },
+        destinations: const [
+          NavigationDestination(
+            icon: Icon(Icons.home_outlined),
+            selectedIcon: Icon(Icons.home_rounded, color: Color(0xFF0277BD)),
+            label: 'Home',
+          ),
+          NavigationDestination(
+            icon: Icon(Icons.school_outlined),
+            selectedIcon: Icon(Icons.school_rounded, color: Color(0xFF0277BD)),
+            label: 'Classes',
+          ),
+          NavigationDestination(
+            icon: Icon(Icons.sports_esports_outlined),
+            selectedIcon: Icon(
+              Icons.sports_esports_rounded,
+              color: Color(0xFF0277BD),
             ),
-          ],
-        ),
+            label: 'Mini Games',
+          ),
+        ],
       ),
     );
   }
@@ -953,7 +1489,7 @@ class _StudentHomeState extends State< StudentHome >
     final userName = AuthService.currentUser?.name.trim() ?? '';
     final greetingName = userName.isNotEmpty ? userName : 'Fisheries Scholar';
 
-    return StreamBuilder< StudentPerformanceSummary >(
+    return StreamBuilder<StudentPerformanceSummary>(
       stream: _summaryStream,
       builder: (context, snapshot) {
         final summary = snapshot.data;
@@ -982,10 +1518,14 @@ class _StudentHomeState extends State< StudentHome >
               Positioned(
                 right: -14,
                 top: -14,
-                child: Icon(
-                  Icons.set_meal_rounded,
-                  size: 110,
-                  color: Colors.white.withOpacity(0.08),
+                child: Opacity(
+                  opacity: 0.30,
+                  child: Image.asset(
+                    'lib/assets/images/Animated Coral Reef Bubbles.gif',
+                    width: 150,
+                    height: 150,
+                    fit: BoxFit.contain,
+                  ),
                 ),
               ),
               Column(
@@ -1044,7 +1584,7 @@ class _StudentHomeState extends State< StudentHome >
                                 size: 22,
                               ),
                               const SizedBox(height: 4),
-                              ValueListenableBuilder< int >(
+                              ValueListenableBuilder<int>(
                                 valueListenable:
                                     DataService.studySecondsNotifier,
                                 builder: (_, __, ___) => Text(
@@ -1139,7 +1679,7 @@ class _StudentHomeState extends State< StudentHome >
 
   // ── Sections 2.1–2.4 & 3.1–3.2: Comprehensive Circular & Horizontal Sliding Student Dashboard ──
   Widget _buildComprehensiveStudentDashboard(ThemeData theme) {
-    return StreamBuilder< StudentPerformanceSummary >(
+    return StreamBuilder<StudentPerformanceSummary>(
       stream: _summaryStream,
       builder: (context, snapshot) {
         final summary = snapshot.data ?? StudentPerformanceSummary.empty();
@@ -1232,7 +1772,7 @@ class _StudentHomeState extends State< StudentHome >
                       final spacing = 10.0;
                       final itemWidth =
                           (gridConstraints.maxWidth - (spacing * (cols - 1))) /
-                              cols;
+                          cols;
                       return Wrap(
                         spacing: spacing,
                         runSpacing: spacing,
@@ -1377,7 +1917,7 @@ class _StudentHomeState extends State< StudentHome >
                   SizedBox(
                     height: 315,
                     child: PageView.builder(
-                      key: const PageStorageKey< String >(
+                      key: const PageStorageKey<String>(
                         'student_subject_carousel',
                       ),
                       controller: _subjectCarouselController,
@@ -1393,10 +1933,7 @@ class _StudentHomeState extends State< StudentHome >
                             horizontal: 6,
                             vertical: 4,
                           ),
-                          child: _buildSubjectCarouselSlide(
-                            subjects[idx],
-                            idx,
-                          ),
+                          child: _buildSubjectCarouselSlide(subjects[idx], idx),
                         );
                       },
                     ),
@@ -1415,12 +1952,12 @@ class _StudentHomeState extends State< StudentHome >
                         tooltip: 'Previous Subject',
                         onPressed: safeSlide > 0
                             ? () => _subjectCarouselController.previousPage(
-                                  duration: const Duration(milliseconds: 300),
-                                  curve: Curves.easeOutCubic,
-                                )
+                                duration: const Duration(milliseconds: 300),
+                                curve: Curves.easeOutCubic,
+                              )
                             : null,
                       ),
-                      ...List< Widget >.generate(subjects.length, (i) {
+                      ...List<Widget>.generate(subjects.length, (i) {
                         final active = i == safeSlide;
                         return GestureDetector(
                           onTap: () => _subjectCarouselController.animateToPage(
@@ -1451,9 +1988,9 @@ class _StudentHomeState extends State< StudentHome >
                         tooltip: 'Next Subject',
                         onPressed: safeSlide < subjects.length - 1
                             ? () => _subjectCarouselController.nextPage(
-                                  duration: const Duration(milliseconds: 300),
-                                  curve: Curves.easeOutCubic,
-                                )
+                                duration: const Duration(milliseconds: 300),
+                                curve: Curves.easeOutCubic,
+                              )
                             : null,
                       ),
                     ],
@@ -1469,7 +2006,7 @@ class _StudentHomeState extends State< StudentHome >
 
   // ── Performance Chart (Real-Time Stream) ───────────────────────
   Widget _buildPerformanceChart(ThemeData theme) {
-    return StreamBuilder< StudentActivityCounts >(
+    return StreamBuilder<StudentActivityCounts>(
       stream: _activityCountsStream,
       builder: (context, snapshot) {
         final counts = snapshot.data ?? StudentActivityCounts.empty;
@@ -1609,7 +2146,7 @@ class _StudentHomeState extends State< StudentHome >
                     strokeWidth: 7.5,
                     strokeCap: StrokeCap.round,
                     backgroundColor: color.withOpacity(0.14),
-                    valueColor: AlwaysStoppedAnimation< Color >(color),
+                    valueColor: AlwaysStoppedAnimation<Color>(color),
                   ),
                 ),
                 Padding(
@@ -1669,13 +2206,13 @@ class _StudentHomeState extends State< StudentHome >
   }
 
   Widget _buildSubjectCarouselSlide(SubjectPerformance subj, int index) {
-    const List< Color > subjectAccents = < Color >[
+    const List<Color> subjectAccents = <Color>[
       Color(0xFF0288D1), // Aquaculture
       Color(0xFF00897B), // Post-Harvest Fisheries
       Color(0xFF3949AB), // Fisheries Ecology and Capture Fisheries
       Color(0xFF6A1B9A), // Fisheries Resource Management
     ];
-    const List< IconData > subjectIcons = < IconData >[
+    const List<IconData> subjectIcons = <IconData>[
       Icons.water_rounded,
       Icons.inventory_2_rounded,
       Icons.sailing_rounded,
@@ -1739,10 +2276,7 @@ class _StudentHomeState extends State< StudentHome >
                 ),
               ),
               Container(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 9,
-                  vertical: 4,
-                ),
+                padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 4),
                 decoration: BoxDecoration(
                   color: accent.withOpacity(0.12),
                   borderRadius: BorderRadius.circular(12),
@@ -1928,7 +2462,7 @@ class _StudentHomeState extends State< StudentHome >
                   strokeWidth: 6,
                   strokeCap: StrokeCap.round,
                   backgroundColor: color.withOpacity(0.14),
-                  valueColor: AlwaysStoppedAnimation< Color >(color),
+                  valueColor: AlwaysStoppedAnimation<Color>(color),
                 ),
               ),
               FittedBox(
@@ -1970,7 +2504,7 @@ class _StudentHomeState extends State< StudentHome >
         child: ListView(
           padding: const EdgeInsets.all(16),
           children: [
-            ValueListenableBuilder< int >(
+            ValueListenableBuilder<int>(
               valueListenable: AuthService.userProfileNotifier,
               builder: (context, _, __) {
                 final user = AuthService.currentUser;
@@ -2005,53 +2539,53 @@ class _StudentHomeState extends State< StudentHome >
                             fontWeight: FontWeight.bold,
                           ),
                         ),
-                       Text(
-                        user?.email ?? 'Student Portal',
-                        style: const TextStyle(
-                          color: Colors.white70,
-                          fontSize: 12,
+                        Text(
+                          user?.email ?? 'Student Portal',
+                          style: const TextStyle(
+                            color: Colors.white70,
+                            fontSize: 12,
+                          ),
                         ),
-                      ),
-                      const SizedBox(height: 10),
-                      Container(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 10,
-                          vertical: 4,
-                        ),
-                        decoration: BoxDecoration(
-                          color: Colors.white.withOpacity(0.14),
-                          borderRadius: BorderRadius.circular(12),
-                        ),
-                        child: const Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            Icon(
-                              Icons.manage_accounts_outlined,
-                              size: 14,
-                              color: Colors.cyanAccent,
-                            ),
-                            SizedBox(width: 6),
-                            Text(
-                              'Profile & Account Settings',
-                              style: TextStyle(
+                        const SizedBox(height: 10),
+                        Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 10,
+                            vertical: 4,
+                          ),
+                          decoration: BoxDecoration(
+                            color: Colors.white.withOpacity(0.14),
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                          child: const Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Icon(
+                                Icons.manage_accounts_outlined,
+                                size: 14,
                                 color: Colors.cyanAccent,
-                                fontSize: 11,
-                                fontWeight: FontWeight.w600,
                               ),
-                            ),
-                            SizedBox(width: 4),
-                            Icon(
-                              Icons.chevron_right_rounded,
-                              size: 15,
-                              color: Colors.cyanAccent,
-                            ),
-                          ],
+                              SizedBox(width: 6),
+                              Text(
+                                'Profile & Account Settings',
+                                style: TextStyle(
+                                  color: Colors.cyanAccent,
+                                  fontSize: 11,
+                                  fontWeight: FontWeight.w600,
+                                ),
+                              ),
+                              SizedBox(width: 4),
+                              Icon(
+                                Icons.chevron_right_rounded,
+                                size: 15,
+                                color: Colors.cyanAccent,
+                              ),
+                            ],
+                          ),
                         ),
-                      ),
-                    ],
+                      ],
+                    ),
                   ),
-                ),
-              );
+                );
               },
             ),
             const SizedBox(height: 24),
@@ -2079,8 +2613,7 @@ class _StudentHomeState extends State< StudentHome >
             _DrawerTile(
               icon: Icons.help_outline_rounded,
               title: 'Help & User Manual',
-              onTap: () =>
-                  _openFromSidebar(const HelpPage(isTeacher: false)),
+              onTap: () => _openFromSidebar(const HelpPage(isTeacher: false)),
             ),
             const SizedBox(height: 8),
             _DrawerTile(

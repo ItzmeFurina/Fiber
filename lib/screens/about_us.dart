@@ -33,6 +33,7 @@ class AboutUsScreen extends StatelessWidget {
                   title: 'Purpose of FiBER',
                   child: const Text(
                     aboutPurposeText,
+                    textAlign: TextAlign.justify,
                     style: TextStyle(fontSize: 16, height: 1.6, color: _ink),
                   ),
                 ),
