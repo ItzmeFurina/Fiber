@@ -85,14 +85,6 @@ service cloud.firestore {
       allow update, delete: if isAdmin();
     }
 
-    // 1.5 Archived Activity Logs:
-    // Active logs are moved here by an Admin; archived logs remain read-only.
-    match /archived_system_logs/{logId} {
-      allow read: if isAdmin();
-      allow create: if isAdmin();
-      allow update, delete: if isAdmin();
-    }
-
     // 2.1 Classes:
     match /classes/{classCode} {
       allow read: if true;

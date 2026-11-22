@@ -23,9 +23,7 @@ class _AdminPanelState extends State<AdminPanel> {
   List<Map<String, dynamic>> _teacherRequests = [];
   bool _isLoadingUsers = false;
   bool _isLoadingLogs = false;
-  bool _isArchivingLogs = false;
-  bool _isLoadingArchivedLogs = false;
-  bool _isDeletingArchivedLogs = false;
+  bool _isDeletingLogs = false;
   String? _processingRequestId;
   int _userListRefreshKey = 0;
 
@@ -48,7 +46,6 @@ class _AdminPanelState extends State<AdminPanel> {
     DataService.moduleUpdateNotifier.addListener(_onRealtimeDataUpdated);
     AuthService.userProfileNotifier.addListener(_onRealtimeDataUpdated);
     _refreshLogs();
-    _refreshArchivedLogs();
     _loadUsers();
     DataService.loadAlumniProfiles().then((_) {
       if (mounted) setState(() {});
@@ -90,28 +87,22 @@ class _AdminPanelState extends State<AdminPanel> {
     setState(() => _isLoadingLogs = false);
   }
 
-  Future<void> _refreshArchivedLogs() async {
-    if (!mounted) return;
-    setState(() => _isLoadingArchivedLogs = true);
-    await DataService.loadArchivedSystemLogs();
-    if (!mounted) return;
-    setState(() => _isLoadingArchivedLogs = false);
-  }
-
-  Future<void> _archiveLogs() async {
-    if (_isArchivingLogs) return;
+  Future<void> _deleteLogsByTimeframe() async {
+    if (_isDeletingLogs) return;
     var timeframe = 'all';
     DateTimeRange? customRange;
     final selection = await showDialog<Map<String, dynamic>>(
       context: context,
       builder: (dialogContext) => StatefulBuilder(
         builder: (context, setDialogState) => AlertDialog(
-          title: const Text('Archive Activity Logs?'),
+          title: const Text('Delete Activity Logs?'),
           content: Column(
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              const Text('Choose which active logs to archive:'),
+              const Text(
+                'Permanently delete active activity logs from the selected timeframe. This cannot be undone.',
+              ),
               const SizedBox(height: 12),
               DropdownButtonFormField<String>(
                 initialValue: timeframe,
@@ -182,7 +173,7 @@ class _AdminPanelState extends State<AdminPanel> {
             ),
             ElevatedButton(
               style: ElevatedButton.styleFrom(
-                backgroundColor: Colors.orange.shade700,
+                backgroundColor: Colors.red.shade700,
                 foregroundColor: Colors.white,
               ),
               onPressed: timeframe == 'custom' && customRange == null
@@ -191,7 +182,7 @@ class _AdminPanelState extends State<AdminPanel> {
                       'timeframe': timeframe,
                       'range': customRange,
                     }),
-              child: const Text('Archive'),
+              child: const Text('Delete Logs'),
             ),
           ],
         ),
@@ -199,12 +190,8 @@ class _AdminPanelState extends State<AdminPanel> {
     );
     if (selection == null || !mounted) return;
 
-    setState(() => _isArchivingLogs = true);
+    setState(() => _isDeletingLogs = true);
     try {
-      final archivedBy =
-          AuthService.currentUser?.email.trim().isNotEmpty == true
-          ? AuthService.currentUser!.email
-          : 'Admin';
       DateTime? start;
       DateTime? end;
       final selectedTimeframe = (selection['timeframe'] ?? 'all').toString();
@@ -222,129 +209,27 @@ class _AdminPanelState extends State<AdminPanel> {
         start = range?.start;
         end = range?.end.add(const Duration(days: 1));
       }
-      final count = await DataService.archiveSystemLogs(
-        archivedBy: archivedBy,
-        start: start,
-        end: end,
-      );
+      final count = await DataService.deleteSystemLogs(start: start, end: end);
       if (!mounted) return;
-      setState(() {
-        _isArchivingLogs = false;
-        _isLoadingLogs = false;
-      });
-      await _refreshArchivedLogs();
+      setState(() => _isDeletingLogs = false);
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text(
             count == 0
-                ? 'There are no activity logs to archive.'
-                : '$count activity log${count == 1 ? '' : 's'} archived.',
+                ? 'No activity logs matched the selected timeframe.'
+                : '$count activity log${count == 1 ? '' : 's'} permanently deleted.',
           ),
           backgroundColor: count == 0 ? Colors.blueGrey : Colors.green.shade700,
         ),
       );
     } catch (e) {
       if (!mounted) return;
-      setState(() => _isArchivingLogs = false);
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Could not archive activity logs: $e'),
-          backgroundColor: Colors.red,
-        ),
-      );
-    }
-  }
-
-  Future<void> _deleteArchivedLog(Map<String, dynamic> log) async {
-    final confirmed = await showDialog<bool>(
-      context: context,
-      builder: (dialogContext) => AlertDialog(
-        title: const Text('Delete Archived Log?'),
-        content: const Text(
-          'This permanently deletes this archived activity log.',
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(dialogContext, false),
-            child: const Text('Cancel'),
-          ),
-          ElevatedButton(
-            style: ElevatedButton.styleFrom(
-              backgroundColor: Colors.red,
-              foregroundColor: Colors.white,
-            ),
-            onPressed: () => Navigator.pop(dialogContext, true),
-            child: const Text('Delete'),
-          ),
-        ],
-      ),
-    );
-    if (confirmed != true || !mounted) return;
-
-    try {
-      await DataService.deleteArchivedSystemLog(log['id'].toString());
-      if (!mounted) return;
-      setState(() {});
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Archived activity log deleted.'),
-          backgroundColor: Colors.green,
-        ),
-      );
-    } catch (e) {
+      setState(() => _isDeletingLogs = false);
+      await _refreshLogs();
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text('Could not delete archived log: $e'),
-          backgroundColor: Colors.red,
-        ),
-      );
-    }
-  }
-
-  Future<void> _deleteAllArchivedLogs() async {
-    final confirmed = await showDialog<bool>(
-      context: context,
-      builder: (dialogContext) => AlertDialog(
-        title: const Text('Delete All Archived Logs?'),
-        content: const Text(
-          'This permanently deletes every archived activity log.',
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(dialogContext, false),
-            child: const Text('Cancel'),
-          ),
-          ElevatedButton(
-            style: ElevatedButton.styleFrom(
-              backgroundColor: Colors.red,
-              foregroundColor: Colors.white,
-            ),
-            onPressed: () => Navigator.pop(dialogContext, true),
-            child: const Text('Delete All'),
-          ),
-        ],
-      ),
-    );
-    if (confirmed != true || !mounted) return;
-
-    setState(() => _isDeletingArchivedLogs = true);
-    try {
-      await DataService.deleteAllArchivedSystemLogs();
-      if (!mounted) return;
-      setState(() => _isDeletingArchivedLogs = false);
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('All archived activity logs deleted.'),
-          backgroundColor: Colors.green,
-        ),
-      );
-    } catch (e) {
-      if (!mounted) return;
-      setState(() => _isDeletingArchivedLogs = false);
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Could not delete archived logs: $e'),
+          content: Text('Could not delete activity logs: $e'),
           backgroundColor: Colors.red,
         ),
       );
@@ -1268,9 +1153,7 @@ class _AdminPanelState extends State<AdminPanel> {
                       ? _buildSystemLogs(theme)
                       : _selectedTab == 1
                       ? _buildAppContent(theme)
-                      : _selectedTab == 2
-                      ? _buildUserAccounts(theme)
-                      : _buildArchivedSystemLogs(theme),
+                      : _buildUserAccounts(theme),
                 ),
               ],
             ),
@@ -1468,7 +1351,6 @@ class _AdminPanelState extends State<AdminPanel> {
           _tabButton('Activity Logs', Icons.history_toggle_off_rounded, 0),
           _tabButton('App Content', Icons.view_carousel_rounded, 1),
           _tabButton('User Accounts', Icons.manage_accounts_rounded, 2),
-          _tabButton('Archived Logs', Icons.archive_rounded, 3),
         ],
       ),
     );
@@ -1487,8 +1369,6 @@ class _AdminPanelState extends State<AdminPanel> {
             _refreshLogs();
           } else if (index == 2) {
             _loadUsers();
-          } else if (index == 3) {
-            _refreshArchivedLogs();
           }
         },
         child: AnimatedContainer(
@@ -1567,25 +1447,26 @@ class _AdminPanelState extends State<AdminPanel> {
                     onPressed: _isLoadingLogs ? null : _refreshLogs,
                   ),
                   OutlinedButton.icon(
-                    icon: _isArchivingLogs
+                    icon: _isDeletingLogs
                         ? const SizedBox(
                             width: 16,
                             height: 16,
                             child: CircularProgressIndicator(strokeWidth: 2),
                           )
-                        : const Icon(Icons.archive_rounded, size: 16),
-                    label: Text(_isArchivingLogs ? 'Archiving...' : 'Archive'),
+                        : const Icon(Icons.delete_sweep_rounded, size: 16),
+                    label: Text(
+                      _isDeletingLogs ? 'Deleting...' : 'Delete by timeframe',
+                    ),
                     style: OutlinedButton.styleFrom(
-                      foregroundColor: Colors.orange.shade800,
-                      side: BorderSide(color: Colors.orange.shade200),
+                      foregroundColor: Colors.red.shade700,
+                      side: BorderSide(color: Colors.red.shade200),
                       shape: RoundedRectangleBorder(
                         borderRadius: BorderRadius.circular(20),
                       ),
                     ),
-                    onPressed:
-                        _isLoadingLogs || _isArchivingLogs || logs.isEmpty
+                    onPressed: _isLoadingLogs || _isDeletingLogs || logs.isEmpty
                         ? null
-                        : _archiveLogs,
+                        : _deleteLogsByTimeframe,
                   ),
                 ],
               ),
@@ -1685,132 +1566,81 @@ class _AdminPanelState extends State<AdminPanel> {
     );
   }
 
-  Widget _buildArchivedSystemLogs(ThemeData theme) {
-    final logs = DataService.archivedSystemLogs;
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          Wrap(
-            alignment: WrapAlignment.spaceBetween,
-            crossAxisAlignment: WrapCrossAlignment.center,
-            runSpacing: 8,
+  Future<void> _showAlumniDetails(AlumniProfile alumni) async {
+    final position = alumni.position.trim().isNotEmpty
+        ? alumni.position.trim()
+        : alumni.title.trim();
+    await showDialog<void>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: const Text('Alumni Profile'),
+        content: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
             children: [
+              alumniAvatar(alumni.imageUrl, size: 76),
+              const SizedBox(height: 12),
               Text(
-                'Archived Activity Logs (${logs.length})',
+                alumni.name,
+                textAlign: TextAlign.center,
                 style: const TextStyle(
+                  fontSize: 18,
                   fontWeight: FontWeight.bold,
-                  fontSize: 16,
                   color: Color(0xFF0B3C5D),
                 ),
               ),
-              Wrap(
-                spacing: 8,
-                runSpacing: 8,
-                children: [
-                  OutlinedButton.icon(
-                    icon: const Icon(Icons.refresh_rounded, size: 16),
-                    label: const Text('Sync Archive'),
-                    style: OutlinedButton.styleFrom(
-                      foregroundColor: const Color(0xFF0277BD),
-                    ),
-                    onPressed: _isLoadingArchivedLogs
-                        ? null
-                        : _refreshArchivedLogs,
-                  ),
-                  OutlinedButton.icon(
-                    icon: _isDeletingArchivedLogs
-                        ? const SizedBox(
-                            width: 16,
-                            height: 16,
-                            child: CircularProgressIndicator(strokeWidth: 2),
-                          )
-                        : const Icon(Icons.delete_sweep_rounded, size: 16),
-                    label: const Text('Delete All'),
-                    style: OutlinedButton.styleFrom(
-                      foregroundColor: Colors.red.shade700,
-                      side: BorderSide(color: Colors.red.shade200),
-                    ),
-                    onPressed: _isDeletingArchivedLogs || logs.isEmpty
-                        ? null
-                        : _deleteAllArchivedLogs,
-                  ),
-                ],
+              const SizedBox(height: 16),
+              _alumniDetailRow(
+                'Position',
+                position.isEmpty ? 'Not provided' : position,
+              ),
+              _alumniDetailRow(
+                'Company',
+                alumni.company.isEmpty ? 'Not provided' : alumni.company,
+              ),
+              _alumniDetailRow(
+                'Batch year',
+                alumni.batchYear.isEmpty ? 'Not provided' : alumni.batchYear,
+              ),
+              _alumniDetailRow('Display order', '#${alumni.displayOrder}'),
+              _alumniDetailRow(
+                'Visibility',
+                alumni.isVisible ? 'Visible' : 'Hidden',
               ),
             ],
           ),
-          const SizedBox(height: 8),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(dialogContext),
+            child: const Text('Close'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _alumniDetailRow(String label, String value) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 5),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          SizedBox(
+            width: 96,
+            child: Text(
+              label,
+              style: const TextStyle(
+                fontWeight: FontWeight.w600,
+                color: Colors.black54,
+              ),
+            ),
+          ),
           Expanded(
-            child: _isLoadingArchivedLogs
-                ? const Center(child: CircularProgressIndicator())
-                : logs.isEmpty
-                ? Center(
-                    child: Container(
-                      padding: const EdgeInsets.all(24),
-                      decoration: BoxDecoration(
-                        color: Colors.white,
-                        borderRadius: BorderRadius.circular(18),
-                      ),
-                      child: const Text(
-                        'No archived activity logs.',
-                        style: TextStyle(color: Colors.black54),
-                      ),
-                    ),
-                  )
-                : ListView.builder(
-                    itemCount: logs.length,
-                    itemBuilder: (_, i) {
-                      final log = logs[logs.length - 1 - i];
-                      final raw =
-                          log['formatted']?.toString() ?? 'Archived log';
-                      return Container(
-                        margin: const EdgeInsets.only(bottom: 10),
-                        padding: const EdgeInsets.all(14),
-                        decoration: BoxDecoration(
-                          color: Colors.white,
-                          borderRadius: BorderRadius.circular(16),
-                          border: Border.all(
-                            color: Colors.orange.withOpacity(0.22),
-                          ),
-                        ),
-                        child: Row(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            CircleAvatar(
-                              radius: 18,
-                              backgroundColor: Colors.orange.withOpacity(0.12),
-                              child: const Icon(
-                                Icons.archive_rounded,
-                                color: Colors.deepOrange,
-                                size: 20,
-                              ),
-                            ),
-                            const SizedBox(width: 12),
-                            Expanded(
-                              child: Text(
-                                raw,
-                                style: const TextStyle(
-                                  fontSize: 12.5,
-                                  height: 1.4,
-                                  fontWeight: FontWeight.w500,
-                                  color: Color(0xFF0B3C5D),
-                                ),
-                              ),
-                            ),
-                            IconButton(
-                              tooltip: 'Delete archived log',
-                              onPressed: () => _deleteArchivedLog(log),
-                              icon: const Icon(
-                                Icons.delete_outline_rounded,
-                                color: Colors.red,
-                              ),
-                            ),
-                          ],
-                        ),
-                      );
-                    },
-                  ),
+            child: Text(
+              value,
+              style: const TextStyle(color: Color(0xFF0B3C5D)),
+            ),
           ),
         ],
       ),
@@ -1865,8 +1695,11 @@ class _AdminPanelState extends State<AdminPanel> {
               ),
             )
           else
-            ...sortedAlumniProfiles.map(
-              (alumni) => Container(
+            ...sortedAlumniProfiles.map((alumni) {
+              final position = alumni.position.trim().isNotEmpty
+                  ? alumni.position.trim()
+                  : alumni.title.trim();
+              return Container(
                 margin: const EdgeInsets.only(bottom: 10),
                 padding: const EdgeInsets.all(14),
                 decoration: BoxDecoration(
@@ -1880,141 +1713,146 @@ class _AdminPanelState extends State<AdminPanel> {
                     ),
                   ],
                 ),
-                child: Row(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
-                    alumniAvatar(alumni.imageUrl, size: 54),
-                    const SizedBox(width: 14),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
+                    Row(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        alumniAvatar(alumni.imageUrl, size: 56),
+                        const SizedBox(width: 14),
+                        Expanded(
+                          child: Text(
+                            alumni.name,
+                            softWrap: true,
+                            style: const TextStyle(
+                              fontWeight: FontWeight.bold,
+                              fontSize: 16,
+                              height: 1.3,
+                              color: Color(0xFF0B3C5D),
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                    const Divider(height: 24),
+                    if (position.isNotEmpty)
+                      _alumniDetailRow('Position', position),
+                    if (alumni.company.isNotEmpty)
+                      _alumniDetailRow('Company', alumni.company),
+                    _alumniDetailRow(
+                      'Batch year',
+                      alumni.batchYear.isEmpty ? 'N/A' : alumni.batchYear,
+                    ),
+                    _alumniDetailRow(
+                      'Display order',
+                      '#${alumni.displayOrder}',
+                    ),
+                    Padding(
+                      padding: const EdgeInsets.only(top: 4),
+                      child: Row(
                         children: [
-                          Row(
-                            children: [
-                              Expanded(
-                                child: Text(
-                                  alumni.name,
-                                  style: const TextStyle(
-                                    fontWeight: FontWeight.bold,
-                                    fontSize: 15,
-                                    color: Color(0xFF0B3C5D),
-                                  ),
-                                ),
+                          const SizedBox(
+                            width: 96,
+                            child: Text(
+                              'Visibility',
+                              style: TextStyle(
+                                fontWeight: FontWeight.w600,
+                                color: Colors.black54,
                               ),
-                              Container(
-                                padding: const EdgeInsets.symmetric(
-                                  horizontal: 8,
-                                  vertical: 2,
-                                ),
-                                decoration: BoxDecoration(
-                                  color: alumni.isVisible
-                                      ? Colors.green.shade50
-                                      : Colors.grey.shade200,
-                                  borderRadius: BorderRadius.circular(12),
-                                ),
-                                child: Text(
-                                  alumni.isVisible ? 'Visible' : 'Hidden',
-                                  style: TextStyle(
-                                    fontSize: 10.5,
-                                    fontWeight: FontWeight.bold,
-                                    color: alumni.isVisible
-                                        ? Colors.green.shade800
-                                        : Colors.black54,
-                                  ),
-                                ),
-                              ),
-                            ],
+                            ),
                           ),
-                          const SizedBox(height: 3),
                           Text(
-                            'Position: ${alumni.position.trim().isNotEmpty ? alumni.position.trim() : alumni.title}${alumni.company.isNotEmpty ? ' • ${alumni.company}' : ''}',
-                            style: const TextStyle(
-                              fontSize: 12.5,
-                              color: Color(0xFF0277BD),
+                            alumni.isVisible ? 'Visible' : 'Hidden',
+                            style: TextStyle(
                               fontWeight: FontWeight.w600,
+                              color: alumni.isVisible
+                                  ? Colors.green.shade800
+                                  : Colors.black54,
                             ),
                           ),
-                          const SizedBox(height: 2),
-                          Text(
-                            'Batch ${alumni.batchYear.isEmpty ? "N/A" : alumni.batchYear} • Display Order #${alumni.displayOrder}',
-                            style: const TextStyle(
-                              fontSize: 11.5,
-                              color: Colors.black54,
-                            ),
+                          const Spacer(),
+                          Switch.adaptive(
+                            value: alumni.isVisible,
+                            onChanged: (visible) async {
+                              await DataService.saveAlumniProfile(
+                                alumni.copyWith(
+                                  isVisible: visible,
+                                  updatedAt: DateTime.now(),
+                                ),
+                              );
+                              if (mounted) setState(() {});
+                            },
                           ),
                         ],
                       ),
                     ),
-                    IconButton(
-                      icon: Icon(
-                        alumni.isVisible
-                            ? Icons.visibility_rounded
-                            : Icons.visibility_off_rounded,
-                        color: alumni.isVisible
-                            ? Colors.green.shade700
-                            : Colors.grey,
-                      ),
-                      tooltip: alumni.isVisible
-                          ? 'Hide from landing page'
-                          : 'Show on landing page',
-                      onPressed: () async {
-                        await DataService.saveAlumniProfile(
-                          alumni.copyWith(
-                            isVisible: !alumni.isVisible,
-                            updatedAt: DateTime.now(),
+                    const SizedBox(height: 8),
+                    Wrap(
+                      alignment: WrapAlignment.end,
+                      spacing: 8,
+                      runSpacing: 8,
+                      children: [
+                        OutlinedButton.icon(
+                          icon: const Icon(Icons.visibility_outlined, size: 17),
+                          label: const Text('View'),
+                          onPressed: () => _showAlumniDetails(alumni),
+                        ),
+                        OutlinedButton.icon(
+                          icon: const Icon(Icons.edit_outlined, size: 17),
+                          label: const Text('Edit'),
+                          onPressed: () => _showAlumniDialog(profile: alumni),
+                        ),
+                        OutlinedButton.icon(
+                          icon: const Icon(
+                            Icons.delete_outline_rounded,
+                            size: 17,
                           ),
-                        );
-                        if (mounted) setState(() {});
-                      },
-                    ),
-                    IconButton(
-                      icon: const Icon(
-                        Icons.edit_outlined,
-                        color: Color(0xFF0277BD),
-                      ),
-                      onPressed: () => _showAlumniDialog(profile: alumni),
-                    ),
-                    IconButton(
-                      icon: const Icon(
-                        Icons.delete_outline_rounded,
-                        color: Colors.redAccent,
-                      ),
-                      onPressed: () async {
-                        final confirmed = await showDialog<bool>(
-                          context: context,
-                          builder: (_) => AlertDialog(
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(18),
-                            ),
-                            title: const Text('Delete Alumni Profile'),
-                            content: Text(
-                              'Remove ${alumni.name} from the landing page?',
-                            ),
-                            actions: [
-                              TextButton(
-                                onPressed: () => Navigator.pop(context, false),
-                                child: const Text('Cancel'),
-                              ),
-                              ElevatedButton(
-                                style: ElevatedButton.styleFrom(
-                                  backgroundColor: Colors.redAccent,
-                                  foregroundColor: Colors.white,
+                          label: const Text('Delete'),
+                          style: OutlinedButton.styleFrom(
+                            foregroundColor: Colors.redAccent,
+                          ),
+                          onPressed: () async {
+                            final confirmed = await showDialog<bool>(
+                              context: context,
+                              builder: (dialogContext) => AlertDialog(
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(18),
                                 ),
-                                onPressed: () => Navigator.pop(context, true),
-                                child: const Text('Delete'),
+                                title: const Text('Delete Alumni Profile'),
+                                content: Text(
+                                  'Remove ${alumni.name} from the landing page?',
+                                ),
+                                actions: [
+                                  TextButton(
+                                    onPressed: () =>
+                                        Navigator.pop(dialogContext, false),
+                                    child: const Text('Cancel'),
+                                  ),
+                                  ElevatedButton(
+                                    style: ElevatedButton.styleFrom(
+                                      backgroundColor: Colors.redAccent,
+                                      foregroundColor: Colors.white,
+                                    ),
+                                    onPressed: () =>
+                                        Navigator.pop(dialogContext, true),
+                                    child: const Text('Delete'),
+                                  ),
+                                ],
                               ),
-                            ],
-                          ),
-                        );
-                        if (confirmed == true) {
-                          await DataService.deleteAlumniProfile(alumni.id);
-                          if (mounted) setState(() {});
-                        }
-                      },
+                            );
+                            if (confirmed == true) {
+                              await DataService.deleteAlumniProfile(alumni.id);
+                              if (mounted) setState(() {});
+                            }
+                          },
+                        ),
+                      ],
                     ),
                   ],
                 ),
-              ),
-            ),
+              );
+            }),
           const SizedBox(height: 18),
           const Text(
             'Published Learning Materials',

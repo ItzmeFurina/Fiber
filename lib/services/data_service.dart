@@ -25,8 +25,6 @@ class DataService {
   static final List<ClassRoom> _classes = [];
   static final List<String> _joinedClassCodes = [];
   static final List<String> _systemLogs = [];
-  static final List<Map<String, dynamic>> _archivedSystemLogs =
-      <Map<String, dynamic>>[];
   static final List<AlumniProfile> _alumniProfiles = [];
 
   static List<Module> get modules => List.unmodifiable(_modules);
@@ -34,8 +32,6 @@ class DataService {
   static List<String> get joinedClassCodes =>
       List.unmodifiable(_joinedClassCodes);
   static List<String> get systemLogs => List.unmodifiable(_systemLogs);
-  static List<Map<String, dynamic>> get archivedSystemLogs =>
-      List<Map<String, dynamic>>.unmodifiable(_archivedSystemLogs);
   static List<AlumniProfile> get alumniProfiles =>
       List.unmodifiable(_alumniProfiles);
 
@@ -890,22 +886,28 @@ class DataService {
     return List<String>.unmodifiable(_systemLogs);
   }
 
-  static Future<int> archiveSystemLogs({
-    required String archivedBy,
-    DateTime? start,
-    DateTime? end,
-  }) async {
-    final snap = await _firestore.collection('system_logs').get();
-    if (snap.docs.isEmpty) {
+  static Future<int> deleteSystemLogs({DateTime? start, DateTime? end}) async {
+    final docs = <Map<String, dynamic>>[];
+    if (!kIsWeb) {
+      docs.addAll(await _fetchCollectionViaRest('system_logs', pageSize: 100));
+    } else {
+      final snap = await _firestore.collection('system_logs').get();
+      docs.addAll(
+        snap.docs.map(
+          (doc) => <String, dynamic>{'_docId': doc.id, 'data': doc.data()},
+        ),
+      );
+    }
+
+    if (docs.isEmpty) {
       _systemLogs.clear();
       return 0;
     }
 
-    var archivedCount = 0;
-    const batchLimit = 250;
+    var deletedCount = 0;
     var batch = _firestore.batch();
     var batchWrites = 0;
-    final now = DateTime.now().toUtc().toIso8601String();
+    final logCollection = _firestore.collection('system_logs');
 
     Future<void> commitBatch() async {
       if (batchWrites == 0) return;
@@ -914,38 +916,33 @@ class DataService {
       batchWrites = 0;
     }
 
-    for (final doc in snap.docs) {
-      final data = doc.data();
+    for (final doc in docs) {
+      final docId = (doc['_docId'] ?? '').toString();
+      if (docId.isEmpty) {
+        throw StateError('A system activity log is missing its document ID.');
+      }
+      final data = doc['data'] as Map<String, dynamic>? ?? <String, dynamic>{};
       final logTime = _parseActivityLogDate(data);
       if (start != null && (logTime == null || logTime.isBefore(start))) {
         continue;
       }
-      if (end != null && (logTime == null || logTime.isAfter(end))) {
+      if (end != null && (logTime == null || !logTime.isBefore(end))) {
         continue;
       }
-      final archivedRef = _firestore
-          .collection('archived_system_logs')
-          .doc(doc.id);
-      batch.set(archivedRef, <String, dynamic>{
-        ...data,
-        'archivedAt': now,
-        'archivedBy': archivedBy,
-      });
-      batch.delete(doc.reference);
+      batch.delete(logCollection.doc(docId));
       batchWrites++;
-      archivedCount++;
-      final formatted = _formatLogFromData(data);
-      if (formatted.isNotEmpty) {
-        _systemLogs.remove(formatted);
-      }
+      deletedCount++;
 
-      if (batchWrites >= batchLimit) {
+      if (batchWrites == 100) {
         await commitBatch();
       }
     }
 
     await commitBatch();
-    return archivedCount;
+    if (deletedCount == 0) return 0;
+    _systemLogs.clear();
+    await loadSystemLogs();
+    return deletedCount;
   }
 
   static DateTime? _parseActivityLogDate(Map<String, dynamic> data) {
@@ -953,56 +950,6 @@ class DataService {
     if (raw is String) return DateTime.tryParse(raw);
     if (raw is Timestamp) return raw.toDate();
     return null;
-  }
-
-  static Future<List<Map<String, dynamic>>> loadArchivedSystemLogs() async {
-    final loaded = <Map<String, dynamic>>[];
-    final snap = await _firestore.collection('archived_system_logs').get();
-    for (final doc in snap.docs) {
-      final data = doc.data();
-      final formatted = _formatLogFromData(data);
-      if (formatted.isEmpty) continue;
-      loaded.add(<String, dynamic>{
-        'id': doc.id,
-        'formatted': formatted,
-        'data': data,
-        'createdAt': data['createdAt']?.toString() ?? '',
-      });
-    }
-    loaded.sort(
-      (a, b) => (a['createdAt'] as String).compareTo(b['createdAt'] as String),
-    );
-    _archivedSystemLogs
-      ..clear()
-      ..addAll(loaded);
-    return List<Map<String, dynamic>>.unmodifiable(_archivedSystemLogs);
-  }
-
-  static Future<void> deleteArchivedSystemLog(String logId) async {
-    await _firestore.collection('archived_system_logs').doc(logId).delete();
-    _archivedSystemLogs.removeWhere((log) => log['id'] == logId);
-  }
-
-  static Future<void> deleteAllArchivedSystemLogs() async {
-    final snap = await _firestore.collection('archived_system_logs').get();
-    if (snap.docs.isEmpty) {
-      _archivedSystemLogs.clear();
-      return;
-    }
-
-    var batch = _firestore.batch();
-    var count = 0;
-    for (final doc in snap.docs) {
-      batch.delete(doc.reference);
-      count++;
-      if (count == 500) {
-        await batch.commit();
-        batch = _firestore.batch();
-        count = 0;
-      }
-    }
-    if (count > 0) await batch.commit();
-    _archivedSystemLogs.clear();
   }
 
   static String _formatLogFromData(Map<String, dynamic> data) {
